@@ -288,6 +288,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
             // Initialization of realm database
             Realm realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
+
             // Update realm.symbols with symbolID's
             RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
             if (sym.isLoaded()) {
@@ -327,20 +328,20 @@ public class MainActivity extends Activity implements View.OnClickListener {
             realm.commitTransaction();
 
             // Collect History.
-            realm.beginTransaction();
+            HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow()-LOOK_BACK), ds.long2StrDate(ds.LongNow()));
             for (int i = 0; i<sym.size(); i++) {
                 symbolID = sym.get(i).getSymbolID();
-                HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, symbolID, ds.long2StrDate(ds.LongNow()-LOOK_BACK), ds.long2StrDate(ds.LongNow()));
                 try {
-                    HistoryJSON.RetrieveData();
+                    HistoryJSON.RetrieveSymbolData(symbolID);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-
-
-
+                // Move symbol prices into array
+                double candles[] = HistoryJSON.JSON2Array(HistoryJSON.Candles);
+                // Calculat Median Average Deviation
+                double MAD = HistoryJSON.MedianAbsoluteDeviation( candles);
             }
-            realm.commitTransaction();
+
 
 
 

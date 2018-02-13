@@ -26,10 +26,13 @@ import static java.lang.Math.sqrt;
 
 public class HistoryData {
     private OkHttpClient client = new OkHttpClient();
-    private String Url = null;
+    private String APIHost = null;
+    private String StartDate = null;
+    private String LastDate = null;
     private String AuthorizationKey = null;
+
     private Gson gson = new Gson();
-    private CandlesJSON Candles;
+    public CandlesJSON Candles;
 
     private double IntervallicDeviation;
     private double IntervallicTrendBias;
@@ -38,12 +41,15 @@ public class HistoryData {
 
     private double CONSISTENCY_CONSTANT = 1.4826;
 
-    public HistoryData(String apiHost, String Key, int symbolID, String date1, String date2) {
-        this.Url = apiHost + "v1/markets/candles/" + symbolID + "?startTime=" + date1 + "&endTime=" + date2 + "&interval=OneDay";
-        this.AuthorizationKey = "Bearer " + Key;
+    public HistoryData(String apiHost, String key, String date1, String date2) {
+        this.APIHost = apiHost;
+        this.StartDate = date1;
+        this.LastDate = date2;
+        this.AuthorizationKey = "Bearer " + key;
     }
 
-    public void RetrieveData() throws Exception {
+    public void RetrieveSymbolData(int symbolID) throws Exception {
+        String Url = this.APIHost + "v1/markets/candles/" + symbolID + "?startTime=" + this.StartDate + "&endTime=" + this.LastDate + "&interval=OneDay";
         Request request = new Request.Builder()
                 .url(Url)
                 .get()
@@ -68,8 +74,7 @@ public class HistoryData {
 
     public double[] JSON2Array (CandlesJSON Candles) {
         List<CandleJSON> candleList = Candles.candles;
-        double Prices[];
-        Prices = new double[10];
+        double Prices[] = new double[candleList.size()];
         for (int i = 0; i<candleList.size(); i++) {
             // Retrieve data from JSON
             long priceDate = new DateSmith().StrDate2LongDate(candleList.get(i).start);
@@ -80,19 +85,26 @@ public class HistoryData {
         return Prices;
     }
 
-    public double MedianAbsoluteDeviation( double[] Prices, int intervallicDays, int period) {
+    public double MedianAbsoluteDeviation( double[] Prices) {
+        List<CandleJSON> candleList = Candles.candles;
+        int candleSize = Prices.length;
+        double ABSPriceChange[] = new double[candleList.size()-1];
+        // Populate ABS(PriceChange) array
+        for (int i=0;i<candleSize-1;i++) {
+            ABSPriceChange[i] = abs(Prices[i+1]-Prices[i]);
+        }
         // Calculate median
         Median mn = new Median();
-        double median = mn.evaluate(Prices);
+        double median = mn.evaluate(ABSPriceChange);
 
         // Calculate MAD
         double[] aXDiff = new double[Prices.length];
-        int candleSize = Prices.length;
-        double sumX, meanX, xDiff, sumDiff, sumSkew, sumKurtosis;
+
+        double xDiff, sumX;
         int i, n;
 
         sumX = 0;
-        for (i = max(candleSize - period, 0); i < candleSize - intervallicDays; i++) {
+        for (i=0;i<candleSize-1;i++) {
             xDiff = abs(Prices[i] - median);
             sumX += xDiff;
             aXDiff[i] = xDiff;
