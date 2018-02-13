@@ -1,32 +1,28 @@
 package com.baddog.optionsscanner;
 
-/**
- * Created by Brian on 2017-10-21.
- */
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.json.JSONObject;
 import android.util.JsonReader;
 import javax.net.ssl.HttpsURLConnection;
+
+
+
+/**
+ * Created by Brian on 2017-10-21.
+ *
+ */
 
 public class GetAccessToken {
 
     public GetAccessToken() {
     }
 
-    public String gettoken(String address,String token,String client_id,String client_secret,String redirect_uri,String grant_type) {
-        String accessToken = "";
+    public JsonReader gettoken(String address,String token,String client_id,String client_secret,String redirect_uri,String grant_type) {
+        JsonReader jsonReader = null;
         // Making HTTP request
         try {
 
@@ -45,20 +41,7 @@ public class GetAccessToken {
                 InputStream responseBody = conn.getInputStream();
                 InputStreamReader responseBodyReader =
                         new InputStreamReader(responseBody, "UTF-8");
-                JsonReader jsonReader = new JsonReader(responseBodyReader);
-                jsonReader.beginObject(); // Start processing the JSON object
-                while (jsonReader.hasNext()) { // Loop through all keys
-                    String key = jsonReader.nextName(); // Fetch the next key
-                    if (key.equals("access_token")) { // Check if desired key
-                        // Fetch the value as a String
-                        accessToken = jsonReader.nextString();
-                        break; // Break out of the loop
-                    } else {
-                        jsonReader.skipValue(); // Skip values of other keys
-                    }
-                }
-            } else {
-                // Error handling code goes here
+                jsonReader = new JsonReader(responseBodyReader);
             }
 
         } catch (UnsupportedEncodingException e) {
@@ -68,7 +51,7 @@ public class GetAccessToken {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    return accessToken;
+    return jsonReader;
     }
 }
 
