@@ -85,7 +85,9 @@ public class HistoryData {
         return Prices;
     }
 
-    public double MedianAbsoluteDeviation( double[] Prices) {
+    // Calulated MAD, adjusted with consistency constant to replicate standard deviation
+    // (https://eurekastatistics.com/using-the-median-absolute-deviation-to-find-outliers/)
+    public double[] MedianAbsoluteDeviation( double[] Prices) {
         List<CandleJSON> candleList = Candles.candles;
         int candleSize = Prices.length;
         double ABSPriceChange[] = new double[candleList.size()-1];
@@ -98,23 +100,50 @@ public class HistoryData {
         double median = mn.evaluate(ABSPriceChange);
 
         // Calculate MAD
-        double[] aXDiff = new double[Prices.length];
+        double[] AbsDiff = new double[ABSPriceChange.length];
 
-        double xDiff, sumX;
-        int i, n;
-
-        sumX = 0;
-        for (i=0;i<candleSize-1;i++) {
-            xDiff = abs(Prices[i] - median);
-            sumX += xDiff;
-            aXDiff[i] = xDiff;
+        for (int i=0;i<ABSPriceChange.length-1;i++) {
+            AbsDiff[i] = abs(ABSPriceChange[i] - median);
         }
+        double[] returnValues = new double[2];
         Median mn2 = new Median();
-        return mn2.evaluate(aXDiff) * CONSISTENCY_CONSTANT;
+        returnValues[0] = median;
+        returnValues[1] = mn2.evaluate(AbsDiff) * CONSISTENCY_CONSTANT;
+        return returnValues;
     }
 
-    public void SmoothOutliers() {
+    // Smooth out prices by replacing outliers with a median ammount.
+    public double[] SmoothOutliers (double[] Prices, double median, double MAD, double StdDeviations)
+    {
+        double SmoothedPrices[] = new double[Prices.length];
+        double maximumPriceChange = MAD*StdDeviations;
 
+        // PriceChangeFactor stores the amount of change future prices need to be adjusted
+        double PriceChangeFactor = 0;
+
+         // Scan though prices. If price change grater than maximumpricechange, then adjust the prices
+        SmoothedPrices[0]=Prices[0];
+        for (int i=1;i<Prices.length;i++) {
+            double pricechange = Prices[i]-Prices[i-1];
+            if(pricechange>=0) {
+             // Price increased or no price change
+                if(pricechange>maximumPriceChange) {
+                    // Price is outlier and needs to be adjusted
+                    PriceChangeFactor += (pricechange - maximumPriceChange);
+                }
+            }
+            if(pricechange<0) {
+                // Price decreased
+                if(abs(pricechange)>maximumPriceChange) {
+                    // Price is outlier and needs to be adjusted
+                    PriceChangeFactor += (maximumPriceChange+pricechange);
+                }
+            }
+            // Smooth price and save in SmoothedPrices array
+            SmoothedPrices[i]=Prices[i]+PriceChangeFactor;
+        }
+
+        return SmoothedPrices;
     }
 
     public void CalculateIntervallicDeviation( double[] Prices, int intervallicDays, int period)

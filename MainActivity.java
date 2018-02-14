@@ -338,8 +338,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 }
                 // Move symbol prices into array
                 double candles[] = HistoryJSON.JSON2Array(HistoryJSON.Candles);
-                // Calculat Median Average Deviation
-                double MAD = HistoryJSON.MedianAbsoluteDeviation( candles);
+                // Calculate median and Median Average Deviation
+                double dataArray[] = new double[2];
+                dataArray = HistoryJSON.MedianAbsoluteDeviation(candles);
+                double median = dataArray[0];
+                double MAD = dataArray[1];
+
             }
 
 
