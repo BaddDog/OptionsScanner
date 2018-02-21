@@ -12,19 +12,19 @@ import io.realm.annotations.LinkingObjects;
 
 public class StrikePrices extends RealmObject {
     private double StrikePrice;
-    private Options CallOption;
-    private Options PutOption;
-    private RealmList<Options> OptionsList;
+    private int callSymbolId;
+    private int putSymbolId;
+   // private RealmList<Options> OptionsList;
 
     @LinkingObjects("StrikePriceList")
-    private final RealmResults<ExpiryDates> expiry ;
+    private final RealmResults<ChainPerRoot> rootChain ;
 
     public StrikePrices() {
-        this.expiry = null;
+        this.rootChain = null;
     }
 
-    public StrikePrices(RealmResults<ExpiryDates> expiry) {
-        this.expiry = expiry;
+    public StrikePrices(RealmResults<ChainPerRoot> chain) {
+        this.rootChain = chain;
     }
 }
 

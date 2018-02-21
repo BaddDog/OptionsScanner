@@ -34,7 +34,7 @@ public class HistoryData {
     private Gson gson = new Gson();
     public CandlesJSON Candles;
 
-    private double IntervallicDeviation;
+    public double IntervallicDeviation;
     private double IntervallicTrendBias;
     private double Skew;
     private double Kurtosis;
@@ -122,6 +122,7 @@ public class HistoryData {
         double PriceChangeFactor = 0;
 
          // Scan though prices. If price change grater than maximumpricechange, then adjust the prices
+        int counter=0;
         SmoothedPrices[0]=Prices[0];
         for (int i=1;i<Prices.length;i++) {
             double pricechange = Prices[i]-Prices[i-1];
@@ -130,6 +131,7 @@ public class HistoryData {
                 if(pricechange>maximumPriceChange) {
                     // Price is outlier and needs to be adjusted
                     PriceChangeFactor += (pricechange - maximumPriceChange);
+                    counter++;
                 }
             }
             if(pricechange<0) {
@@ -137,6 +139,7 @@ public class HistoryData {
                 if(abs(pricechange)>maximumPriceChange) {
                     // Price is outlier and needs to be adjusted
                     PriceChangeFactor += (maximumPriceChange+pricechange);
+                    counter++;
                 }
             }
             // Smooth price and save in SmoothedPrices array

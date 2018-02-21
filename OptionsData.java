@@ -6,26 +6,24 @@ import com.google.gson.GsonBuilder;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.Date;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * Created by Brian on 2018-02-10.
- *
+ * Created by Brian on 2018-02-17.
  */
 
-public class SymbolData {
+public class OptionsData {
     private final OkHttpClient client = new OkHttpClient();
     private final String Url;
     private final String AuthorizationKey;
     private final Gson gson = new Gson();
-    private SymbolsJSON symJSON;
+    private OptionsJSON optJSON;
 
-    public SymbolData(String apiHost, String Key, String symbol) {
-        this.Url = apiHost+"v1/symbols/search?prefix=" + symbol ;
+    public OptionsData(String apiHost, String Key, int symbolID) {
+        this.Url = apiHost+"v1/symbols/"+ symbolID + "/options";
         this.AuthorizationKey = "Bearer "+ Key;
     }
 
@@ -40,14 +38,34 @@ public class SymbolData {
 
         if (response.code() == 200) {
             GsonBuilder gson_builder = new GsonBuilder();
-            Gson gson = gson_builder.create();
+            gson_builder.setLenient();
+            Gson gson2 = gson_builder.create();
+
             InputStream is = response.body().byteStream();
             Reader reader = new InputStreamReader(is, "UTF-8");
-            symJSON = gson.fromJson(reader,SymbolsJSON.class);
-         }
+            optJSON = gson2.fromJson(reader ,OptionsJSON.class);
+        }
     }
 
-    public int getSymbolID(int index) {
-        return symJSON.symbols[index].symbolId;
+
+
+    public  int getExpiryDateCount() {
+        if(optJSON!=null) {
+            return this.optJSON.getOptionExpiryDateJSONSize();
+        } else {
+            return 0;
+        }
     }
+
+    public OptionsJSON.OptionExpiryDateJSON getExpiryDate(int index) {
+        if (optJSON != null) {
+            return this.optJSON.getOptionExpiryDateJSON(index);
+        } else {
+            return null;
+        }
+    }
+
+
+
+
 }

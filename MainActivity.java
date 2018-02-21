@@ -4,6 +4,7 @@ import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
@@ -33,6 +34,9 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.Toast;
 
+import org.apache.commons.math3.stat.regression.RegressionResults;
+import org.apache.commons.math3.stat.regression.SimpleRegression;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 
@@ -61,7 +65,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private static String TOKEN_URL = "https://login.questrade.com/oauth2/token";
     private static String OAUTH_URL = "https://login.questrade.com/oauth2/authorize";
 
-    private int LOOK_BACK = 200;
+    private int LOOK_BACK = 250;
+    private double STD_DEVIATIONS = 5.0;
+    private int MIN_DAYS_TILL_EXPIRY = 3;
 
     private BroadcastReceiver broadcastReceiver;
     String OAUTH_TOKEN = null;
@@ -70,6 +76,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     WebView web;
     Button authButton;
     Button historyButton;
+    Button OptionsButton;
     SharedPreferences pref;
     private TextView mTextMessage;
     private Realm realm;
@@ -93,6 +100,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
         historyButton = (Button) findViewById(R.id.history);
         historyButton.setClickable(false);
         historyButton.setOnClickListener(this);
+        // Listen for 'Analyze Options' button *****************************************
+        OptionsButton = (Button) findViewById(R.id.AnalyzeOptions);
+        OptionsButton.setClickable(false);
+        OptionsButton.setOnClickListener(this);
 
         if(realm.where(Holidays.class).findAll().size()==0) {
             // Initialize realm with basic data
@@ -182,9 +193,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
             case R.id.AnalyzeOptions:
                 // Populate realm.options using "GET markets/quotes/options"
                 OptionsQT();
+                break;
             case R.id.AnalyzeStrategies:
                 // Populate realm.options using "GET markets/quotes/options"
                 OptionsQT();
+                break;
             default:
                 break;
         }
@@ -257,6 +270,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 OAUTH_TOKEN = token;
                 Log.d("Token Access", token);
                 authButton.setText("Authenticated");
+                authButton.setBackgroundColor(Color.GREEN);
                 // Send a broadcast from onPostExecute() to mainactivity
                 Intent intent = new Intent("com.example.UPLOAD_FINISHED");
                 context.sendBroadcast(intent);
@@ -312,7 +326,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             DateSmith ds = new DateSmith();
             realm.beginTransaction();
             int symbolID;
-            for (int i = 0; i<sym.size(); i++) {
+            for (int i = 0; i < sym.size(); i++) {
                 symbolID = sym.get(i).getSymbolID();
                 QuoteData QuoteDataJSON = new QuoteData(apiServer, OAUTH_TOKEN, symbolID);
                 try {
@@ -323,13 +337,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 double price = QuoteDataJSON.getLastTradePrice(0);
                 sym.get(i).setLastTradePrice(price);
                 String dt = QuoteDataJSON.getLastTradeDateTime(0);
+                // Set datetime of last trade price
                 sym.get(i).setLastTradePriceDateTime(ds.StrDate2LongDateTime(dt));
             }
             realm.commitTransaction();
 
-            // Collect History.
-            HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow()-LOOK_BACK), ds.long2StrDate(ds.LongNow()));
-            for (int i = 0; i<sym.size(); i++) {
+            // Collect History. Scan through all the symbols *****************************************************************************
+            HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow() - LOOK_BACK), ds.long2StrDate(ds.LongNow()));
+            double[] SmoothedPrices;
+            for (int i = 0; i < sym.size(); i++) {
                 symbolID = sym.get(i).getSymbolID();
                 try {
                     HistoryJSON.RetrieveSymbolData(symbolID);
@@ -343,24 +359,52 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 dataArray = HistoryJSON.MedianAbsoluteDeviation(candles);
                 double median = dataArray[0];
                 double MAD = dataArray[1];
-
+                // Smooth outliera
+                SmoothedPrices = HistoryJSON.SmoothOutliers(candles, median, MAD, STD_DEVIATIONS);
+                // Calculate volatility at three expiry dates.
+                int days1, days2, days3;
+                Calendar calendar = Calendar.getInstance();
+                int daysTillFriday =  Calendar.FRIDAY - calendar.get(Calendar.DAY_OF_WEEK) ;
+                if (daysTillFriday < MIN_DAYS_TILL_EXPIRY) {
+                    days1 = daysTillFriday+7;
+                } else {
+                    days1 = daysTillFriday;
+                }
+                days2 = days1 + 7;
+                days3 = days2 + 7;
+                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days1,SmoothedPrices.length);
+                double vol1 = HistoryJSON.IntervallicDeviation;
+                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days2,SmoothedPrices.length);
+                double vol2 = HistoryJSON.IntervallicDeviation;
+                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days3,SmoothedPrices.length);
+                double vol3 = HistoryJSON.IntervallicDeviation;
+                // Calculate linear regression
+                SimpleRegression regression = new SimpleRegression();
+                regression.addData(days1, vol1);
+                regression.addData(days2, vol2);
+                regression.addData(days3, vol3);
+                realm.beginTransaction();
+                    sym.get(i).setVolatilitySlope(regression.getSlope());
+                    sym.get(i).setVolatilityIntercept(regression.getIntercept());
+                    sym.get(i).setTrendBiasSlope(regression.getSlope());
+                    sym.get(i).setTrendBiasIntercept(regression.getIntercept());
+                    sym.get(i).setCalcDate(ds.LongNow());
+                realm.commitTransaction();
             }
-
-
-
-
-
-            // Calculate volatility.
-
-
-            String xx = "";
-            return xx;
+            // END OF Collect History. Scan through all the symbols *****************************************************************************
+        return "";
         }
 
         @Override
         protected void onPostExecute(String token) {
+                // Change title once completed
+                historyButton.setText("History Collected");
+                historyButton.setBackgroundColor(Color.GREEN);
+                // Make History Button Clickable
+                historyButton.setClickable(true);
 
         }
+
     }
 
     private void AuthenticateQT () {
@@ -419,7 +463,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     private void HistoryQT() {
         if (OAUTH_TOKEN != null) {
-
             // Update realm.symbols with symbolID's, and LastTradePrice
             // Collect History. Calculate volatility.
             try {
@@ -431,8 +474,76 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     private void OptionsQT() {
-
+        if (OAUTH_TOKEN != null) {
+            // Update realm.Options
+            try {
+                new GetOptions(MainActivity.this).execute();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
+    private class GetOptions extends AsyncTask<String, String, String> {
 
+        public  Context context;
+
+        private GetOptions(Context context) throws Exception {
+            this.context = context;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+        }
+
+        @Override
+        protected String doInBackground(String... args) {
+
+            // Initialization of realm database
+            Realm realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
+
+            // Scan through symbolID's and populate options data
+            RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
+            if (sym.isLoaded()) {
+                realm.beginTransaction();
+                int symbolID;
+                for (int i = 0; i < sym.size(); i++) {
+                    symbolID = sym.get(i).getSymbolID();
+                    OptionsData OptionsDataJSON = new OptionsData(apiServer, OAUTH_TOKEN, symbolID);
+                    try {
+                        OptionsDataJSON.run();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    // Scan through the Options Expiry dates
+                    if(OptionsDataJSON.getExpiryDateCount()>0) {
+                        for (int j = 0; j < OptionsDataJSON.getExpiryDateCount(); j++) {
+                            // Get Expiry dates
+                            OptionsJSON.OptionExpiryDateJSON ExpiryDateJSON = OptionsDataJSON.getExpiryDate(j);
+                            // List of option roots
+                            for (int k = 0; k < ExpiryDateJSON.getStrikePriceChainCount(); k++) {
+                                OptionsJSON.ChainPerRootJSON ChainPerRoot = ExpiryDateJSON.getChainPerRoot(k);
+                                // Scan through strike prices
+                                for (int l = 0; l < ChainPerRoot.getStrikePricesCount(); l++) {
+                                    OptionsJSON.StrikePriceJSON StrikePrices = ChainPerRoot.getStrikePrice(l);
+                                }
+                            }
+                        }
+                    }
+                    realm.commitTransaction();
+                }
+
+            }
+        String x = "";
+        return  x;
+        }
+
+        @Override
+        protected void onPostExecute(String token) {
+
+        }
+    }
 }
+

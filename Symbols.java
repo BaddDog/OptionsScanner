@@ -23,10 +23,10 @@ public class Symbols extends RealmObject {
     private double lastTradePrice;
     private long LastTradePriceDateTime;
     private long calcDate;
-    private double volatility_a;
-    private double volatility_b;
-    private double trendbias_a;
-    private double trendbias_b;
+    private double volatility_slope;
+    private double volatility_intercept;
+    private double trendbias_slope;
+    private double trendbias_intercept;
     private RealmList <ExpiryDates> ExpiryDateList;
 
     public Symbols() {}
@@ -45,19 +45,22 @@ public class Symbols extends RealmObject {
         this.lastTradePrice = price;
     }
     public void setLastTradePriceDateTime (long datetime) {
-        this.LastTradePriceDateTime = datetime;
-    }
+        this.LastTradePriceDateTime = datetime;}
+    public void setVolatilitySlope (double slope) { this.volatility_slope = slope;}
+    public void setVolatilityIntercept (double intercept) { this.volatility_intercept = intercept;}
+    public void setTrendBiasSlope (double slope) { this.volatility_slope = slope;}
+    public void setTrendBiasIntercept (double intercept) { this.volatility_intercept = intercept;}
 
     // getters
     public int getSymbolID() {
         return this.symbolID;
     }
-
     public String getSymbol() {
         return this.symbol;
     }
-
     public long getCalcDate() {return this.calcDate;  }
+
+
 
     public void PopulateSymbols(Realm realm) {
             AddSymbol(realm, "AAPL");
