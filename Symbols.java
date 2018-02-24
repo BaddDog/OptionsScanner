@@ -27,9 +27,10 @@ public class Symbols extends RealmObject {
     private double volatility_intercept;
     private double trendbias_slope;
     private double trendbias_intercept;
-    private RealmList <ExpiryDates> ExpiryDateList;
+    private RealmList <Options> OptionsList;
 
     public Symbols() {}
+
 
     // setters
     public void setSymbol(String symbol) {
@@ -59,7 +60,9 @@ public class Symbols extends RealmObject {
         return this.symbol;
     }
     public long getCalcDate() {return this.calcDate;  }
-
+    public double getLastTradePrice() {
+        return this.lastTradePrice;
+    }
 
 
     public void PopulateSymbols(Realm realm) {

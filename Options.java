@@ -1,5 +1,6 @@
 package com.baddog.optionsscanner;
 
+import io.realm.Realm;
 import io.realm.RealmObject;
 import io.realm.RealmResults;
 import io.realm.annotations.LinkingObjects;
@@ -12,19 +13,42 @@ import io.realm.annotations.Required;
  */
 
 public class Options extends RealmObject {
-    @PrimaryKey
+    //@PrimaryKey
     private int OptionID;
     private String OptionType;   // "Call or "Put"
+    private long LongExpiryDate;
+    private double StrikePrice;
+    // Save pricing and open interest information at date time 'LastTradePriceDateTime'
     private double LastTradePrice;
     private long LastTradePriceDateTime;
+    private int openInterest;
 
     @LinkingObjects("OptionsList")
-    private final RealmResults <StrikePrices> strike ;
+    private final RealmResults <Symbols> underlyingSymbol ;
 
-    public Options() {this.strike = null;}
+    public Options() {this.underlyingSymbol = null;}
 
-    public Options(RealmResults<StrikePrices> strike) {
-        this.strike = strike;
+    //public Options(RealmResults<Symbols> underlying) {this.underlyingSymbol = underlying;    }
+
+    // Setters
+    public void setOptionID(int optionid) {
+        this.OptionID = optionid;
+    }
+    public void setOptionType(String type) {
+        this.OptionType = type;
+    }
+    public void setLastTradePrice(double price) {this.LastTradePrice = price;}
+    public void setLastTradePriceDateTime(long datetime) {
+        this.LastTradePriceDateTime = datetime;
+    }
+    public void setopenInterest(int op) {
+        this.openInterest = op;
+    }
+    public void setLongExpiryDate(long longdate) {
+        this.LongExpiryDate = longdate;
+    }
+    public void setStrikePrice(double price) {
+        this.StrikePrice = price;
     }
 
 }
