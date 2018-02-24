@@ -579,6 +579,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         return "";
         }
 
+        
         @Override
         protected void onPostExecute(String token) {
             // Change title once completed
