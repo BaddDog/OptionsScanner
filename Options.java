@@ -18,15 +18,14 @@ public class Options extends RealmObject {
     private String OptionType;   // "Call or "Put"
     private long LongExpiryDate;
     private double StrikePrice;
+    private int underlyingID;
     // Save pricing and open interest information at date time 'LastTradePriceDateTime'
     private double LastTradePrice;
     private long LastTradePriceDateTime;
     private int openInterest;
 
-    @LinkingObjects("OptionsList")
-    private final RealmResults <Symbols> underlyingSymbol ;
 
-    public Options() {this.underlyingSymbol = null;}
+    public Options() {}
 
     //public Options(RealmResults<Symbols> underlying) {this.underlyingSymbol = underlying;    }
 
@@ -50,5 +49,7 @@ public class Options extends RealmObject {
     public void setStrikePrice(double price) {
         this.StrikePrice = price;
     }
-
+    public void setUnderlyingID(int symbolID) {
+        this.underlyingID = symbolID;
+    }
 }

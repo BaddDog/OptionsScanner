@@ -36,6 +36,8 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.Toast;
 
+import com.google.gson.Gson;
+
 import org.apache.commons.math3.stat.regression.RegressionResults;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 
@@ -50,12 +52,18 @@ import io.realm.RealmAsyncTask;
 import io.realm.RealmConfiguration;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
+import static io.realm.internal.network.OkHttpAuthenticationServer.JSON;
 
 
 public class MainActivity extends Activity implements View.OnClickListener {
@@ -87,6 +95,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private Realm realm;
     static final String STATE_USER = "user";
     private String mUser;
+    List<Integer> OptionList = new ArrayList();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -534,6 +543,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     }
                     // OptionsDataJSON contains all the options for a single underlying symbol (sym)
                     DateSmith ds = new DateSmith();
+                    double maxStrike = symbolLastTradePrice*(PERCENT_STRIKE_RANGE/100+1);
+                    double minStrike = symbolLastTradePrice/(PERCENT_STRIKE_RANGE/100+1);
+
                     // Scan through the Options Expiry dates
                     if(OptionsDataJSON.getExpiryDateCount()>0) {
                         for (int j = 0; j < OptionsDataJSON.getExpiryDateCount(); j++) {
@@ -549,37 +561,63 @@ public class MainActivity extends Activity implements View.OnClickListener {
                                         for (int l = 0; l < ChainPerRoot.getStrikePricesCount(); l++) {
                                             OptionsJSON.StrikePriceJSON StrikePrices = ChainPerRoot.getStrikePrice(l);
                                             double strikeprice = StrikePrices.strikePrice;
-                                            double maxStrike = symbolLastTradePrice*(PERCENT_STRIKE_RANGE/100+1);
-                                            double minStrike = symbolLastTradePrice/(PERCENT_STRIKE_RANGE/100+1);
+
                                             // Only save options to realm that are within PERCENT_STRIKE_RANGE
                                             if(strikeprice>=minStrike && strikeprice<=maxStrike) {
+                                                /* TODO Need to save the option ids so that they can be used to retrieve price data and open interest
+                                                    private double LastTradePrice;
+                                                    private long LastTradePriceDateTime;
+                                                    private int openInterest;
+                                                */
+
                                                 // Save call symbol ID
                                                 Options opt1 = realm.createObject(Options.class);
                                                 opt1.setOptionID(StrikePrices.callSymbolId);
                                                 opt1.setOptionType("CALL");
                                                 opt1.setLongExpiryDate(LongExpiryDate);
                                                 opt1.setStrikePrice(strikeprice);
+                                                opt1.setUnderlyingID(symbolID);
+                                                OptionList.add(StrikePrices.callSymbolId);
+
                                                 // Save put symbol ID
                                                 Options opt2 = realm.createObject(Options.class);
                                                 opt2.setOptionID(StrikePrices.putSymbolId);
                                                 opt2.setOptionType("PUT");
                                                 opt2.setLongExpiryDate(LongExpiryDate);
                                                 opt2.setStrikePrice(strikeprice);
+                                                opt2.setUnderlyingID(symbolID);
+                                                OptionList.add(StrikePrices.putSymbolId);
+
                                             }
                                         }
-                                    }
+                                   }
                                 }
                             }
                         }
                     }
+                    OptionsInfoRequestJSON OptionsInfoRequest = new OptionsInfoRequestJSON(OptionList);
+                    OptionsInfo OptionsQuoteJSON = new OptionsInfo(apiServer, OAUTH_TOKEN);
+                    try {
+                        OptionsQuoteJSON.run(OptionsInfoRequest);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    OptionList.clear();
                 }
                 realm.commitTransaction();
+
+
+
+              // int xxx = OptionsQuoteJSON.optJSON.optionQuotes.size();
+              //  String xxx2 = OptionsQuoteJSON.optJSON.optionQuotes.get(0).symbol;
+              //  String xxx3 = OptionsQuoteJSON.optJSON.optionQuotes.get(0).lastTradeTime;
+
             }
             RealmResults<Options> opt = realm.where(Options.class).findAll();
         return "";
         }
 
-        
+
         @Override
         protected void onPostExecute(String token) {
             // Change title once completed
