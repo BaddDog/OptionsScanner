@@ -217,8 +217,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 OptionsQT();
                 break;
             case R.id.AnalyzeStrategies:
-                // Populate realm.options using "GET markets/quotes/options"
-                OptionsQT();
+                // Populate realm.strategy and calculate scores
+                StrategyQT();
                 break;
             default:
                 break;
@@ -506,6 +506,17 @@ public class MainActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    private void StrategyQT() {
+        if (OAUTH_TOKEN != null) {
+            // Update realm.Strategy
+            try {
+                new CalcStrategies(MainActivity.this).execute();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private class GetOptions extends AsyncTask<String, String, String> {
 
         public  Context context;
@@ -525,11 +536,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
             // Initialization of realm database
             Realm realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
-
-            // Scan through symbolID's and populate options data
+            OptionInfoJSON OptionInformation = null;
+            // Scan through symbolID's and populate options data *******************************************************
             RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
             if (sym.isLoaded()) {
-                realm.beginTransaction();
+
                 int symbolID;
                 // Scan through all underlying symbols, obtain all the options associated with each underlying symbol.
                 for (int i = 0; i < sym.size(); i++) {
@@ -546,7 +557,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     double maxStrike = symbolLastTradePrice*(PERCENT_STRIKE_RANGE/100+1);
                     double minStrike = symbolLastTradePrice/(PERCENT_STRIKE_RANGE/100+1);
 
-                    // Scan through the Options Expiry dates
+                    // Scan through the Options Expiry dates for a single underlying symbol. Add the option IDs into a List called
+                    // OptionList and use this list to retrieve option information
                     if(OptionsDataJSON.getExpiryDateCount()>0) {
                         for (int j = 0; j < OptionsDataJSON.getExpiryDateCount(); j++) {
                             // Get Expiry dates
@@ -569,25 +581,25 @@ public class MainActivity extends Activity implements View.OnClickListener {
                                                     private long LastTradePriceDateTime;
                                                     private int openInterest;
                                                 */
+                                                realm.beginTransaction();
+                                                    // Save call symbol ID
+                                                    Options opt1 = realm.createObject(Options.class);
+                                                    opt1.setOptionID(StrikePrices.callSymbolId);
+                                                    opt1.setOptionType("CALL");
+                                                    opt1.setLongExpiryDate(LongExpiryDate);
+                                                    opt1.setStrikePrice(strikeprice);
+                                                    opt1.setUnderlyingID(symbolID);
+                                                    OptionList.add(StrikePrices.callSymbolId);
 
-                                                // Save call symbol ID
-                                                Options opt1 = realm.createObject(Options.class);
-                                                opt1.setOptionID(StrikePrices.callSymbolId);
-                                                opt1.setOptionType("CALL");
-                                                opt1.setLongExpiryDate(LongExpiryDate);
-                                                opt1.setStrikePrice(strikeprice);
-                                                opt1.setUnderlyingID(symbolID);
-                                                OptionList.add(StrikePrices.callSymbolId);
-
-                                                // Save put symbol ID
-                                                Options opt2 = realm.createObject(Options.class);
-                                                opt2.setOptionID(StrikePrices.putSymbolId);
-                                                opt2.setOptionType("PUT");
-                                                opt2.setLongExpiryDate(LongExpiryDate);
-                                                opt2.setStrikePrice(strikeprice);
-                                                opt2.setUnderlyingID(symbolID);
-                                                OptionList.add(StrikePrices.putSymbolId);
-
+                                                    // Save put symbol ID
+                                                    Options opt2 = realm.createObject(Options.class);
+                                                    opt2.setOptionID(StrikePrices.putSymbolId);
+                                                    opt2.setOptionType("PUT");
+                                                    opt2.setLongExpiryDate(LongExpiryDate);
+                                                    opt2.setStrikePrice(strikeprice);
+                                                    opt2.setUnderlyingID(symbolID);
+                                                    OptionList.add(StrikePrices.putSymbolId);
+                                                realm.commitTransaction();
                                             }
                                         }
                                    }
@@ -595,25 +607,34 @@ public class MainActivity extends Activity implements View.OnClickListener {
                             }
                         }
                     }
+                    // Use OptionList to POST for option information from questrade
                     OptionsInfoRequestJSON OptionsInfoRequest = new OptionsInfoRequestJSON(OptionList);
                     OptionsInfo OptionsQuoteJSON = new OptionsInfo(apiServer, OAUTH_TOKEN);
                     try {
-                        OptionsQuoteJSON.run(OptionsInfoRequest);
+                        OptionInformation = OptionsQuoteJSON.run(OptionsInfoRequest);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
+
+                    // Use OptionInformation to populate realm database Options
+                    assert OptionInformation != null;
+                    for (int m=0;m<OptionInformation.optionQuotes.size();m++) {
+                        OptionInfoJSON.OptionQuoteJSON quote = OptionInformation.optionQuotes.get(m);
+                        // Find the realm object and update it using OptionInformation
+                        realm.beginTransaction();
+                            RealmResults<Options> opt = realm.where(Options.class).equalTo("OptionID",quote.symbolId ).findAll();
+                            opt.get(0).setLastTradePrice(quote.lastTradePrice);
+                            opt.get(0).setLastTradePriceDateTime(ds.StrDate2LongDateTime(quote.lastTradeTime));
+                            opt.get(0).setopenInterest(quote.openInterest);
+                        realm.commitTransaction();
+                    }
+                    // Clear OptionList so it can be used again for the next underlying symbol
                     OptionList.clear();
                 }
-                realm.commitTransaction();
 
-
-
-              // int xxx = OptionsQuoteJSON.optJSON.optionQuotes.size();
-              //  String xxx2 = OptionsQuoteJSON.optJSON.optionQuotes.get(0).symbol;
-              //  String xxx3 = OptionsQuoteJSON.optJSON.optionQuotes.get(0).lastTradeTime;
 
             }
-            RealmResults<Options> opt = realm.where(Options.class).findAll();
+
         return "";
         }
 
@@ -627,5 +648,38 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         }
     }
+
+
+private class CalcStrategies extends AsyncTask<String, String, String> {
+
+    public  Context context;
+
+    private CalcStrategies(Context context) throws Exception {
+        this.context = context;
+    }
+
+    @Override
+    protected void onPreExecute() {
+        super.onPreExecute();
+
+    }
+
+    @Override
+    protected String doInBackground(String... args) {
+
+        // Initialization of realm database
+        Realm realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
+    return "";
+    }
+
+
+    @Override
+    protected void onPostExecute(String token) {
+        // Change title once completed
+        StrategyButton.setText("Analysis Collected");
+        StrategyButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorGreen)));
+    }
 }
 
+
+}

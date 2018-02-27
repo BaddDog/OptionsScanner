@@ -13,7 +13,6 @@ import io.realm.annotations.Required;
  */
 
 public class Options extends RealmObject {
-    //@PrimaryKey
     private int OptionID;
     private String OptionType;   // "Call or "Put"
     private long LongExpiryDate;

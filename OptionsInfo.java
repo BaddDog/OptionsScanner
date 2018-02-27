@@ -24,14 +24,15 @@ public class OptionsInfo {
     private final OkHttpClient client = new OkHttpClient();
     private final String Url;
     private final String AuthorizationKey;
-    public OptionInfoJSON optJSON;
+
 
     public OptionsInfo(String apiHost, String Key) {
         this.Url = apiHost + "v1/markets/quotes/options";
         this.AuthorizationKey = "Bearer " + Key;
     }
-
-    public void run(OptionsInfoRequestJSON InfoRequestJSON) throws Exception {
+    //
+    public OptionInfoJSON run(OptionsInfoRequestJSON InfoRequestJSON) throws Exception {
+        OptionInfoJSON OptionInfoJSONReturned;
         Gson gson = new Gson();
         String userJson = gson.toJson(InfoRequestJSON);
 
@@ -52,9 +53,11 @@ public class OptionsInfo {
 
             InputStream is = response.body().byteStream();
             Reader reader = new InputStreamReader(is, "UTF-8");
-            optJSON = gson2.fromJson(reader, OptionInfoJSON.class);
+            OptionInfoJSONReturned =  gson2.fromJson(reader, OptionInfoJSON.class);
+        } else {
+            OptionInfoJSONReturned = null;
         }
-
+    return OptionInfoJSONReturned;
     }
 
 }
