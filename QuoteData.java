@@ -52,4 +52,11 @@ public class QuoteData {
 
     public String getLastTradeDateTime (int index) { return qJSON.quotes.get(index).lastTradeTime;}
 
+    public double getAskPrice(int index) {
+        return qJSON.quotes.get(index).askPrice;
+    }
+    public double getBidPrice(int index) {
+        return qJSON.quotes.get(index).bidPrice;
+    }
+
 }

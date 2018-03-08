@@ -13,5 +13,25 @@ public class Strategy extends RealmObject {
     private Options callOption;
     private Options putOption;
     private StrategyTypes strategyType;
-    private double Score;
+
+    public Strategy() {
+    }
+
+    public Strategy(Options callOption, Options putOption) {
+        this.callOption = callOption;
+        this.putOption = putOption;
+    }
+
+    // Setters
+    public void setCallOption(Options option) {
+        this.callOption = option;
+    }
+    public void setPutOption(Options option) {
+        this.putOption = option;
+    }
+
+    public double setScore(double CallStrikePrice, double PutStrikePrice, double MedianPrice, double stdDev, long daysTillExpiry, double FeePerShare) {
+        ProfitAnalyzer PA = new ProfitAnalyzer();
+        return PA.CalcProfitability(CallStrikePrice, PutStrikePrice, MedianPrice, stdDev, daysTillExpiry, FeePerShare);
+    }
 }

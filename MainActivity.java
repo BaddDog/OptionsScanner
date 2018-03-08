@@ -14,11 +14,17 @@ import android.support.design.widget.BottomNavigationView;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.DividerItemDecoration;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.JsonReader;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import android.net.Uri;
@@ -35,26 +41,28 @@ import android.view.View;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.Toast;
+;
 
 import com.google.gson.Gson;
 
 import org.apache.commons.math3.stat.regression.RegressionResults;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 
-import java.io.BufferedReader;
+
 import java.io.IOException;
 
 
-import javax.net.ssl.HttpsURLConnection;
 
+
+import atv.model.TreeNode;
+import atv.view.AndroidTreeView;
 import io.realm.Realm;
 import io.realm.RealmAsyncTask;
 import io.realm.RealmConfiguration;
+import io.realm.RealmList;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -63,7 +71,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-import static io.realm.internal.network.OkHttpAuthenticationServer.JSON;
 
 
 public class MainActivity extends Activity implements View.OnClickListener {
@@ -77,9 +84,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     private int LOOK_BACK = 250;
     private double STD_DEVIATIONS = 5.0;
-    private int MIN_DAYS_TILL_EXPIRY = 3;
-    private int MAX_DAYS_TILL_EXPIRY = 25;
-    private double PERCENT_STRIKE_RANGE = 5.0;
+    private int MIN_DAYS_TILL_EXPIRY = 4;
+    private int MAX_DAYS_TILL_EXPIRY = 16;
+    private double PERCENT_STRIKE_RANGE = 3.0;
+    private double COST_OF_VOLATILITY_LIMIT = 2.5;
 
     private BroadcastReceiver broadcastReceiver;
     String OAUTH_TOKEN = null;
@@ -90,25 +98,31 @@ public class MainActivity extends Activity implements View.OnClickListener {
     Button historyButton;
     Button OptionsButton;
     Button StrategyButton;
+    Button StrategyViewButton;
     SharedPreferences pref;
     private TextView mTextMessage;
     private Realm realm;
     static final String STATE_USER = "user";
     private String mUser;
-    List<Integer> OptionList = new ArrayList();
+    List<Integer> options = new ArrayList();
+
+    private static final String TAG = "MyActivity";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
         // Initialization of realm database
         realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
         realm.beginTransaction();
-             // delete all realm objects
-             realm.deleteAll();
+        // delete all realm objects
+        realm.deleteAll();
         realm.commitTransaction();
 
-        setContentView(R.layout.activity_main);
+
+
         pref = getSharedPreferences("AppPref", MODE_PRIVATE);
 
         // auth is "Sign in" button on main activity page *****************************************
@@ -126,41 +140,45 @@ public class MainActivity extends Activity implements View.OnClickListener {
         StrategyButton = (Button) findViewById(R.id.AnalyzeStrategies);
         StrategyButton.setClickable(false);
         StrategyButton.setOnClickListener(this);
+        // Listen for 'View Strategies' button *****************************************
+        StrategyViewButton = (Button) findViewById(R.id.StrategyViews);
+        StrategyViewButton.setClickable(false);
+        StrategyViewButton.setOnClickListener(this);
 
-        if(realm.where(Holidays.class).findAll().size()==0) {
+        if (realm.where(Holidays.class).findAll().size() == 0) {
             // Initialize realm with basic data
             Holidays hol = new Holidays();
             hol.PopulateHolidays(realm);
         }
-        if(realm.where(Symbols.class).findAll().size()==0) {
+        if (realm.where(Symbols.class).findAll().size() == 0) {
             Symbols sym = new Symbols();
             sym.PopulateSymbols(realm);
         }
 
-            // **** testing *****************************************************
-            Date currentTime = Calendar.getInstance().getTime();
-            Date date2 = null;
-            String dtStart = "2018-03-10T09:27:37Z";
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-            try {
-                date2 = format.parse(dtStart);
-                System.out.println(date2);
-            } catch (ParseException e) {
-                e.printStackTrace();
-            }
+        // **** testing *****************************************************
+        Date currentTime = Calendar.getInstance().getTime();
+        Date date2 = null;
+        String dtStart = "2018-03-10T09:27:37Z";
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        try {
+            date2 = format.parse(dtStart);
+            System.out.println(date2);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
 
 
-            DateSmith DS = new DateSmith();
-            long CT = DS.workdayDiff(realm, currentTime, date2);
+        DateSmith DS = new DateSmith();
+        long CT = DS.workdayDiff(realm, currentTime, date2);
 
-            RealmResults<Symbols> result2 = realm.where(Symbols.class).findAll();
-            String x = result2.last().getSymbol();
-            // **************************************************************************
+        RealmResults<Symbols> result2 = realm.where(Symbols.class).findAll();
+        String x = result2.last().getSymbol();
+        // **************************************************************************
     }
 
     @Override
     protected void onStart() {
-         super.onStart();
+        super.onStart();
     }
 
     @Override
@@ -219,6 +237,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
             case R.id.AnalyzeStrategies:
                 // Populate realm.strategy and calculate scores
                 StrategyQT();
+                break;
+            case R.id.StrategyViews:
+                // Populate realm.strategy and calculate scores
+                StrategyViewsQT();
                 break;
             default:
                 break;
@@ -281,7 +303,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
             }
 
 
-
             return accessToken;
         }
 
@@ -298,6 +319,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 context.sendBroadcast(intent);
                 // Make History Button Clickable
                 historyButton.setClickable(true);
+                authButton.setClickable(false);
             } else {
                 Toast.makeText(getApplicationContext(), "Network Error", Toast.LENGTH_SHORT).show();
             }
@@ -307,7 +329,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     private class GetHistory extends AsyncTask<String, String, String> {
 
-        public  Context context;
+        public Context context;
 
         private GetHistory(Context context) throws Exception {
             this.context = context;
@@ -361,6 +383,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 String dt = QuoteDataJSON.getLastTradeDateTime(0);
                 // Set datetime of last trade price
                 sym.get(i).setLastTradePriceDateTime(ds.StrDate2LongDateTime(dt));
+
             }
             realm.commitTransaction();
 
@@ -386,19 +409,19 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 // Calculate volatility at three expiry dates.
                 int days1, days2, days3;
                 Calendar calendar = Calendar.getInstance();
-                int daysTillFriday =  Calendar.FRIDAY - calendar.get(Calendar.DAY_OF_WEEK) ;
+                int daysTillFriday = Calendar.FRIDAY - calendar.get(Calendar.DAY_OF_WEEK);
                 if (daysTillFriday < MIN_DAYS_TILL_EXPIRY) {
-                    days1 = daysTillFriday+7;
+                    days1 = daysTillFriday + 7;
                 } else {
                     days1 = daysTillFriday;
                 }
                 days2 = days1 + 7;
                 days3 = days2 + 7;
-                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days1,SmoothedPrices.length);
+                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days1, SmoothedPrices.length);
                 double vol1 = HistoryJSON.IntervallicDeviation;
-                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days2,SmoothedPrices.length);
+                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days2, SmoothedPrices.length);
                 double vol2 = HistoryJSON.IntervallicDeviation;
-                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days3,SmoothedPrices.length);
+                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days3, SmoothedPrices.length);
                 double vol3 = HistoryJSON.IntervallicDeviation;
                 // Calculate linear regression
                 SimpleRegression regression = new SimpleRegression();
@@ -406,30 +429,31 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 regression.addData(days2, vol2);
                 regression.addData(days3, vol3);
                 realm.beginTransaction();
-                    sym.get(i).setVolatilitySlope(regression.getSlope());
-                    sym.get(i).setVolatilityIntercept(regression.getIntercept());
-                    sym.get(i).setTrendBiasSlope(regression.getSlope());
-                    sym.get(i).setTrendBiasIntercept(regression.getIntercept());
-                    sym.get(i).setCalcDate(ds.LongNow());
+                sym.get(i).setVolatilitySlope(regression.getSlope());
+                sym.get(i).setVolatilityIntercept(regression.getIntercept());
+                sym.get(i).setTrendBiasSlope(regression.getSlope());
+                sym.get(i).setTrendBiasIntercept(regression.getIntercept());
+                sym.get(i).setCalcDate(ds.LongNow());
                 realm.commitTransaction();
             }
             // END OF Collect History. Scan through all the symbols *****************************************************************************
-        return "";
+            return "";
         }
 
         @Override
         protected void onPostExecute(String token) {
-                // Change title once completed
-                historyButton.setText("History Collected");
-                historyButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorGreen)));
-                // Make History Button Clickable
-                OptionsButton.setClickable(true);
+            // Change title once completed
+            historyButton.setText("History Collected");
+            historyButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorGreen)));
+            // Make History Button Clickable
+            OptionsButton.setClickable(true);
+            historyButton.setClickable(false);
 
         }
 
     }
 
-    private void AuthenticateQT () {
+    private void AuthenticateQT() {
         auth_dialog = new Dialog(MainActivity.this);
         auth_dialog.setContentView(R.layout.auth_dialog);
         web = (WebView) auth_dialog.findViewById(R.id.webview);
@@ -443,14 +467,17 @@ public class MainActivity extends Activity implements View.OnClickListener {
             boolean authComplete = false;
             Intent resultIntent = new Intent();
             String authCode;
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 return false;
             }
+
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
             }
+
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
@@ -517,9 +544,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    private void StrategyViewsQT() {
+
+
+    }
+
     private class GetOptions extends AsyncTask<String, String, String> {
 
-        public  Context context;
+        public Context context;
 
         private GetOptions(Context context) throws Exception {
             this.context = context;
@@ -554,88 +586,110 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     }
                     // OptionsDataJSON contains all the options for a single underlying symbol (sym)
                     DateSmith ds = new DateSmith();
-                    double maxStrike = symbolLastTradePrice*(PERCENT_STRIKE_RANGE/100+1);
-                    double minStrike = symbolLastTradePrice/(PERCENT_STRIKE_RANGE/100+1);
+                    double maxStrike = symbolLastTradePrice * (PERCENT_STRIKE_RANGE / 100 + 1);
+                    double minStrike = symbolLastTradePrice / (PERCENT_STRIKE_RANGE / 100 + 1);
 
                     // Scan through the Options Expiry dates for a single underlying symbol. Add the option IDs into a List called
                     // OptionList and use this list to retrieve option information
-                    if(OptionsDataJSON.getExpiryDateCount()>0) {
+                    if (OptionsDataJSON.getExpiryDateCount() > 0) {
                         for (int j = 0; j < OptionsDataJSON.getExpiryDateCount(); j++) {
                             // Get Expiry dates
                             OptionsJSON.OptionExpiryDateJSON ExpiryDateJSON = OptionsDataJSON.getExpiryDate(j);
                             long LongExpiryDate = ds.StrDate2LongDate(ExpiryDateJSON.expiryDate);
-                            if(LongExpiryDate-ds.LongNow()<=MAX_DAYS_TILL_EXPIRY) {
+                            if (LongExpiryDate - ds.LongNow() <= MAX_DAYS_TILL_EXPIRY) {
+                                // Create realmObject of class ExpirationDates and add to ExpiryList
+                                realm.beginTransaction();
+                                ExpirationDates exp = realm.createObject(ExpirationDates.class);
+                                sym.get(i).Add2ExpiryList(exp);
+                                exp.setLongExpiryDate(LongExpiryDate);
+                                realm.commitTransaction();
                                 // List of option roots
                                 for (int k = 0; k < ExpiryDateJSON.getStrikePriceChainCount(); k++) {
                                     OptionsJSON.ChainPerRootJSON ChainPerRoot = ExpiryDateJSON.getChainPerRoot(k);
-                                    if(ChainPerRoot.multiplier==100) {
+                                    if (ChainPerRoot.multiplier == 100) {
                                         // Scan through strike prices
                                         for (int l = 0; l < ChainPerRoot.getStrikePricesCount(); l++) {
                                             OptionsJSON.StrikePriceJSON StrikePrices = ChainPerRoot.getStrikePrice(l);
                                             double strikeprice = StrikePrices.strikePrice;
 
                                             // Only save options to realm that are within PERCENT_STRIKE_RANGE
-                                            if(strikeprice>=minStrike && strikeprice<=maxStrike) {
+                                            if (strikeprice >= minStrike && strikeprice <= maxStrike) {
                                                 /* TODO Need to save the option ids so that they can be used to retrieve price data and open interest
                                                     private double LastTradePrice;
                                                     private long LastTradePriceDateTime;
                                                     private int openInterest;
                                                 */
                                                 realm.beginTransaction();
-                                                    // Save call symbol ID
-                                                    Options opt1 = realm.createObject(Options.class);
-                                                    opt1.setOptionID(StrikePrices.callSymbolId);
-                                                    opt1.setOptionType("CALL");
-                                                    opt1.setLongExpiryDate(LongExpiryDate);
-                                                    opt1.setStrikePrice(strikeprice);
-                                                    opt1.setUnderlyingID(symbolID);
-                                                    OptionList.add(StrikePrices.callSymbolId);
+                                                // Save call symbol ID
+                                                Options opt1 = realm.createObject(Options.class);
+                                                opt1.setOptionID(StrikePrices.callSymbolId);
+                                                opt1.setOptionType("CALL");
+                                                opt1.setStrikePrice(strikeprice);
 
-                                                    // Save put symbol ID
-                                                    Options opt2 = realm.createObject(Options.class);
-                                                    opt2.setOptionID(StrikePrices.putSymbolId);
-                                                    opt2.setOptionType("PUT");
-                                                    opt2.setLongExpiryDate(LongExpiryDate);
-                                                    opt2.setStrikePrice(strikeprice);
-                                                    opt2.setUnderlyingID(symbolID);
-                                                    OptionList.add(StrikePrices.putSymbolId);
+                                                int yy = sym.get(i).getExpiryDates().size();
+                                                int xx = exp.getUnderlyingSymbolObject().getSymbolID();
+
+                                                // opt1.setUnderlyingSymbolID(exp.getUnderlyingSymbolObject().getSymbolID());
+                                                // opt1.setLongExpiryDate(exp.getLongExpiryDate());
+                                                // Add optionID to options List to be used to populate JSON for REST POST
+                                                options.add(StrikePrices.callSymbolId);
+                                                // Add options realm object to OptionsList in expiratedate realm object
+                                                exp.Add2CallOptionsList(opt1);
+
+                                                // Save put symbol ID
+                                                Options opt2 = realm.createObject(Options.class);
+                                                opt2.setOptionID(StrikePrices.putSymbolId);
+                                                opt2.setOptionType("PUT");
+                                                opt2.setStrikePrice(strikeprice);
+                                                // Add optionID to options List to be used to populate JSON for REST POST
+                                                options.add(StrikePrices.putSymbolId);
+                                                // Add options realm object to OptionsList in symbols realm object
+                                                exp.Add2PutOptionsList(opt2);
                                                 realm.commitTransaction();
                                             }
                                         }
-                                   }
+                                    }
+                                }
+                            }
+
+                            // Use OptionList to POST for option information from questrade
+                            OptionsInfoRequestJSON OptionsInfoRequest = new OptionsInfoRequestJSON(options);
+                            OptionsInfo OptionsQuoteJSON = new OptionsInfo(apiServer, OAUTH_TOKEN);
+                            try {
+                                OptionInformation = OptionsQuoteJSON.run(OptionsInfoRequest);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+
+                            // Use OptionInformation to populate realm database Options
+                            assert OptionInformation != null;
+                            if (OptionInformation != null) {
+                                for (int m = 0; m < OptionInformation.optionQuotes.size(); m++) {
+                                    OptionInfoJSON.OptionQuoteJSON quote = OptionInformation.optionQuotes.get(m);
+                                    // Find the realm object and update it using OptionInformation
+
+                                    RealmResults<Options> opt = realm.where(Options.class).equalTo("OptionID", quote.symbolId).findAll();
+                                    if (opt.size() > 0) {
+                                        realm.beginTransaction();
+                                        opt.get(0).setLastTradePrice(quote.lastTradePrice);
+                                        opt.get(0).setLastTradePriceDateTime(ds.StrDate2LongDateTime(quote.lastTradeTime));
+                                        opt.get(0).setopenInterest(quote.openInterest);
+                                        opt.get(0).setAskPrice(quote.askPrice);
+                                        opt.get(0).setBidPrice(quote.bidPrice);
+                                        realm.commitTransaction();
+                                    } else Log.d(TAG, "RealmResults<Options> opt of zero size");
                                 }
                             }
                         }
-                    }
-                    // Use OptionList to POST for option information from questrade
-                    OptionsInfoRequestJSON OptionsInfoRequest = new OptionsInfoRequestJSON(OptionList);
-                    OptionsInfo OptionsQuoteJSON = new OptionsInfo(apiServer, OAUTH_TOKEN);
-                    try {
-                        OptionInformation = OptionsQuoteJSON.run(OptionsInfoRequest);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                        // Clear OptionList so it can be used again for the next underlying symbol
+                        options.clear();
 
-                    // Use OptionInformation to populate realm database Options
-                    assert OptionInformation != null;
-                    for (int m=0;m<OptionInformation.optionQuotes.size();m++) {
-                        OptionInfoJSON.OptionQuoteJSON quote = OptionInformation.optionQuotes.get(m);
-                        // Find the realm object and update it using OptionInformation
-                        realm.beginTransaction();
-                            RealmResults<Options> opt = realm.where(Options.class).equalTo("OptionID",quote.symbolId ).findAll();
-                            opt.get(0).setLastTradePrice(quote.lastTradePrice);
-                            opt.get(0).setLastTradePriceDateTime(ds.StrDate2LongDateTime(quote.lastTradeTime));
-                            opt.get(0).setopenInterest(quote.openInterest);
-                        realm.commitTransaction();
                     }
-                    // Clear OptionList so it can be used again for the next underlying symbol
-                    OptionList.clear();
                 }
-
 
             }
 
-        return "";
+            return "";
         }
 
 
@@ -645,41 +699,100 @@ public class MainActivity extends Activity implements View.OnClickListener {
             OptionsButton.setText("Analysis Collected");
             OptionsButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorGreen)));
             StrategyButton.setClickable(true);
+            OptionsButton.setClickable(false);
 
         }
     }
 
 
-private class CalcStrategies extends AsyncTask<String, String, String> {
+    private class CalcStrategies extends AsyncTask<String, String, String> {
 
-    public  Context context;
+        public Context context;
 
-    private CalcStrategies(Context context) throws Exception {
-        this.context = context;
+        private CalcStrategies(Context context) throws Exception {
+            this.context = context;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+        }
+
+        @Override
+        protected String doInBackground(String... args) {
+
+            // Initialization of realm database
+            Realm realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
+
+            // Scan through symbolID's and populate options data *******************************************************
+            RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
+            if (sym.isLoaded()) {
+
+                Log.d(TAG, "Debug 1");
+
+                int symbolID;
+                // Scan through all underlying symbols, then scan throug the symbols expiry dates
+                for (int i = 0; i < sym.size(); i++) {
+                    // Scan through list of expiration dates for a symbol
+                    RealmList<ExpirationDates> expiryDates = sym.get(i).getExpiryDates();
+                    for (int j = 0; j < expiryDates.size(); j++) {
+
+                        // Find call and put options for the underlying symbol
+                        RealmList<Options> callOptions = expiryDates.get(j).getCallOptionsList();
+                        RealmList<Options> putOptions = expiryDates.get(j).getPutOptionsList();
+
+                        // Scan through call options and match up to put options
+                        for (int c = 0; c < callOptions.size(); c++) {
+
+                            for (int p = 0; p < putOptions.size(); p++) {
+
+                                Options callOption = callOptions.get(c);
+                                Options putOption = callOptions.get(p);
+                                double CallPremium = callOption.getPremium();
+                                double PutPremium = putOption.getPremium();
+                                double CallStrikePrice = callOption.getStrikePrice();
+                                double PutStrikePrice = putOption.getStrikePrice();
+                                long daysTillExpiry = callOption.getExpirationDateObject().getDaysTillExpiry();
+                                double MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice() + callOption.getExpirationDateObject().getUnderlyingSymbolObject().getTrendBias(daysTillExpiry);
+                                double stdDev = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(daysTillExpiry);
+                                int contracts = 5;
+                                double transactionFee = 9.95;
+                                double FeePerContract = 1.00;
+                                double FeesPerShare = CallPremium + PutPremium + ((transactionFee + (FeePerContract * contracts)) / (contracts * 100));
+
+                                // Check if this option par is possibly profitable and the option's expiry date is not too close
+                                if (FeesPerShare / stdDev < COST_OF_VOLATILITY_LIMIT && CallPremium > 0 && PutPremium > 0 && daysTillExpiry >= MIN_DAYS_TILL_EXPIRY) {
+
+                                    // Create a strategy realm object using call option and put option
+                                    realm.beginTransaction();
+
+                                    Strategy strat = realm.createObject(Strategy.class);
+                                    strat.setCallOption(callOptions.get(c));
+                                    strat.setPutOption(putOptions.get(p));
+                                    strat.setScore(CallStrikePrice, PutStrikePrice, MedianPrice, stdDev, daysTillExpiry, FeesPerShare);
+                                    realm.commitTransaction();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return "";
+        }
+
+
+        @Override
+        protected void onPostExecute(String token) {
+            // Change title once completed
+            StrategyButton.setText("Analysis Collected");
+            StrategyButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorGreen)));
+            StrategyViewButton.setClickable(true);
+            StrategyButton.setClickable(false);
+        }
     }
 
-    @Override
-    protected void onPreExecute() {
-        super.onPreExecute();
-
-    }
-
-    @Override
-    protected String doInBackground(String... args) {
-
-        // Initialization of realm database
-        Realm realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
-    return "";
-    }
 
 
-    @Override
-    protected void onPostExecute(String token) {
-        // Change title once completed
-        StrategyButton.setText("Analysis Collected");
-        StrategyButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorGreen)));
-    }
 }
 
-
-}

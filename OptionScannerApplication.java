@@ -1,6 +1,7 @@
 package com.baddog.optionsscanner;
 
 import android.app.Application;
+import android.app.Application;
 import android.content.Intent;
 
 import com.facebook.stetho.Stetho;
