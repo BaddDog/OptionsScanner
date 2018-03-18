@@ -3,9 +3,14 @@ package com.baddog.optionsscanner;
 
 
 
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import io.realm.Realm;
 import io.realm.RealmList;
 import io.realm.RealmObject;
+import io.realm.annotations.PrimaryKey;
+import io.realm.annotations.Required;
 
 
 /**
@@ -14,9 +19,11 @@ import io.realm.RealmObject;
  */
 
 public class Symbols extends RealmObject {
+    public static final String FIELD_ID = "id";
+    private static AtomicInteger INTEGER_COUNTER = new AtomicInteger(0);
 
-    private String symbol;
     private int symbolID;
+    private String symbol;
     private double lastTradePrice;
     private long LastTradePriceDateTime;
     private long calcDate;
@@ -25,11 +32,34 @@ public class Symbols extends RealmObject {
     private double trendbias_slope;
     private double trendbias_intercept;
     private RealmList<ExpirationDates> ExpiryList;
+    private RealmList<Strategy> StrategyList;
 
-    public Symbols() {
-        ExpiryList = null;
+    //  create() & delete() needs to be called inside a transaction.
+    static void create(Realm realm) {
+        create(realm, false);
+    }
+    static void create(Realm realm, boolean randomlyInsert) {
+        SymbolList parent = realm.where(SymbolList.class).findFirst();
+        RealmList<Symbols> items = parent.getSymbolsList();
+        Symbols counter = realm.createObject(Symbols.class, increment());
+        if (randomlyInsert && items.size() > 0) {
+            Random rand = new Random();
+            items.listIterator(rand.nextInt(items.size())).add(counter);
+        } else {
+            items.add(counter);
+        }
+    }
+    static void delete(Realm realm, long id) {
+        Symbols item = realm.where(Symbols.class).equalTo(FIELD_ID, id).findFirst();
+        // Otherwise it has been deleted already.
+        if (item != null) {
+            item.deleteFromRealm();
+        }
     }
 
+    private static int increment() {
+        return INTEGER_COUNTER.getAndIncrement();
+    }
 
     // setters
     public void setSymbol(String symbol) {
@@ -90,18 +120,17 @@ public class Symbols extends RealmObject {
         return this.ExpiryList;
     }
 
-
-    public void PopulateSymbols(Realm realm) {
-        AddSymbol(realm, "AAPL");
-        AddSymbol(realm, "EEM");
-        AddSymbol(realm, "IWM");
-        AddSymbol(realm, "UVXY");
+    public RealmList getStrategyList() {
+        return this.StrategyList;
     }
+
+
+
 
     private void AddSymbol(Realm realm, String symbol) {
         realm.beginTransaction();
-        Symbols sym = realm.createObject(Symbols.class);
-        sym.setSymbol(symbol);
+            Symbols sym = realm.createObject(Symbols.class);
+            sym.setSymbol(symbol);
         realm.commitTransaction();
     }
 
@@ -115,5 +144,25 @@ public class Symbols extends RealmObject {
     public double getTrendBias(long dayTillExpiry) {
         return (trendbias_slope*dayTillExpiry)+trendbias_intercept;
     }
+
+
+    public String getSymbolIDString() {
+        return Integer.toString(symbolID);
+    }
+
+    public double getBestScore() {
+        double BestScore = -9999999;
+        for (int i =0; i<this.StrategyList.size(); i++) {
+            if(this.StrategyList.get(i).getScore()>BestScore) {
+                BestScore = this.StrategyList.get(i).getScore();
+            }
+        }
+        return BestScore;
+    }
+
+    public void AddStrategy(Strategy strat) {
+        this.StrategyList.add(strat);
+    }
+
 
 }

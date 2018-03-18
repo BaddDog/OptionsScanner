@@ -20,7 +20,7 @@ import java.util.Collection;
 
 import io.realm.Realm;
 
-public class DataHelper {
+public class ViewSymbolListDataHelper {
 
     // Create 3 counters and insert them into random place of the list.
     public static void randomAddItemAsync(Realm realm) {
@@ -28,7 +28,7 @@ public class DataHelper {
             @Override
             public void execute(Realm realm) {
                 for (int i = 0; i < 3; i++) {
-                    Item.create(realm, true);
+                    Symbols.create(realm, true);
                 }
             }
         });
@@ -38,7 +38,7 @@ public class DataHelper {
         realm.executeTransactionAsync(new Realm.Transaction() {
             @Override
             public void execute(Realm realm) {
-                Item.create(realm);
+                Symbols.create(realm);
             }
         });
     }
@@ -47,7 +47,7 @@ public class DataHelper {
         realm.executeTransactionAsync(new Realm.Transaction() {
             @Override
             public void execute(Realm realm) {
-                Item.delete(realm, id);
+                Symbols.delete(realm, id);
             }
         });
     }
@@ -60,7 +60,7 @@ public class DataHelper {
             @Override
             public void execute(Realm realm) {
                 for (Integer id : idsToDelete) {
-                    Item.delete(realm, id);
+                    Symbols.delete(realm, id);
                 }
             }
         });

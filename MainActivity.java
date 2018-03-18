@@ -5,15 +5,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
 import android.content.res.ColorStateList;
-import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Message;
+import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.design.widget.BottomNavigationView;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.app.ActionBarActivity;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -22,14 +18,10 @@ import android.util.JsonReader;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
-
 import android.net.Uri;
 import android.os.AsyncTask;
-
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.ProgressDialog;
@@ -51,19 +43,16 @@ import org.apache.commons.math3.stat.regression.SimpleRegression;
 
 import java.io.IOException;
 
-
-
-
-import atv.model.TreeNode;
-import atv.view.AndroidTreeView;
 import io.realm.Realm;
 import io.realm.RealmAsyncTask;
 import io.realm.RealmConfiguration;
 import io.realm.RealmList;
+import io.realm.RealmObject;
 import io.realm.RealmQuery;
 import io.realm.RealmResults;
 
 
+import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -88,8 +77,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private int MAX_DAYS_TILL_EXPIRY = 16;
     private double PERCENT_STRIKE_RANGE = 3.0;
     private double COST_OF_VOLATILITY_LIMIT = 2.5;
-
+    private boolean USE_TREND_BIAS = false;
     private BroadcastReceiver broadcastReceiver;
+
     String OAUTH_TOKEN = null;
     String apiServer;
     Dialog auth_dialog;
@@ -99,15 +89,19 @@ public class MainActivity extends Activity implements View.OnClickListener {
     Button OptionsButton;
     Button StrategyButton;
     Button StrategyViewButton;
+
+
     SharedPreferences pref;
     private TextView mTextMessage;
     private Realm realm;
     static final String STATE_USER = "user";
     private String mUser;
     List<Integer> options = new ArrayList();
-
+    //SymbolList symList = null;
     private static final String TAG = "MyActivity";
-
+    private RecyclerView recyclerView;
+    private Menu menu;
+    private ViewSymbolListAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -120,8 +114,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
         // delete all realm objects
         realm.deleteAll();
         realm.commitTransaction();
-
-
 
         pref = getSharedPreferences("AppPref", MODE_PRIVATE);
 
@@ -145,35 +137,21 @@ public class MainActivity extends Activity implements View.OnClickListener {
         StrategyViewButton.setClickable(false);
         StrategyViewButton.setOnClickListener(this);
 
+
         if (realm.where(Holidays.class).findAll().size() == 0) {
             // Initialize realm with basic data
             Holidays hol = new Holidays();
             hol.PopulateHolidays(realm);
         }
         if (realm.where(Symbols.class).findAll().size() == 0) {
-            Symbols sym = new Symbols();
-            sym.PopulateSymbols(realm);
-        }
+            realm.beginTransaction();
+                SymbolList xx = realm.createObject(SymbolList.class);
+            realm.commitTransaction();
+                xx.PopulateSymbols(realm);
 
-        // **** testing *****************************************************
-        Date currentTime = Calendar.getInstance().getTime();
-        Date date2 = null;
-        String dtStart = "2018-03-10T09:27:37Z";
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-        try {
-            date2 = format.parse(dtStart);
-            System.out.println(date2);
-        } catch (ParseException e) {
-            e.printStackTrace();
         }
 
 
-        DateSmith DS = new DateSmith();
-        long CT = DS.workdayDiff(realm, currentTime, date2);
-
-        RealmResults<Symbols> result2 = realm.where(Symbols.class).findAll();
-        String x = result2.last().getSymbol();
-        // **************************************************************************
     }
 
     @Override
@@ -545,8 +523,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     private void StrategyViewsQT() {
-
-
+        Intent it = new Intent(this.getApplicationContext(), ViewSymbolList.class);
+        startActivity(it);
     }
 
     private class GetOptions extends AsyncTask<String, String, String> {
@@ -735,7 +713,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 // Scan through all underlying symbols, then scan throug the symbols expiry dates
                 for (int i = 0; i < sym.size(); i++) {
                     // Scan through list of expiration dates for a symbol
-                    RealmList<ExpirationDates> expiryDates = sym.get(i).getExpiryDates();
+                    Symbols sybl = sym.get(i);
+                    RealmList<ExpirationDates> expiryDates = sybl.getExpiryDates();
                     for (int j = 0; j < expiryDates.size(); j++) {
 
                         // Find call and put options for the underlying symbol
@@ -746,7 +725,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                         for (int c = 0; c < callOptions.size(); c++) {
 
                             for (int p = 0; p < putOptions.size(); p++) {
-
+                                double MedianPrice;
                                 Options callOption = callOptions.get(c);
                                 Options putOption = callOptions.get(p);
                                 double CallPremium = callOption.getPremium();
@@ -754,7 +733,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
                                 double CallStrikePrice = callOption.getStrikePrice();
                                 double PutStrikePrice = putOption.getStrikePrice();
                                 long daysTillExpiry = callOption.getExpirationDateObject().getDaysTillExpiry();
-                                double MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice() + callOption.getExpirationDateObject().getUnderlyingSymbolObject().getTrendBias(daysTillExpiry);
+
+                                if(USE_TREND_BIAS)
+                                    MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice() + callOption.getExpirationDateObject().getUnderlyingSymbolObject().getTrendBias(daysTillExpiry);
+                                else MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice();
+
                                 double stdDev = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(daysTillExpiry);
                                 int contracts = 5;
                                 double transactionFee = 9.95;
@@ -766,11 +749,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
                                     // Create a strategy realm object using call option and put option
                                     realm.beginTransaction();
-
-                                    Strategy strat = realm.createObject(Strategy.class);
-                                    strat.setCallOption(callOptions.get(c));
-                                    strat.setPutOption(putOptions.get(p));
-                                    strat.setScore(CallStrikePrice, PutStrikePrice, MedianPrice, stdDev, daysTillExpiry, FeesPerShare);
+                                        Strategy strat = realm.createObject(Strategy.class);
+                                    realm.commitTransaction();
+                                    realm.beginTransaction();
+                                        sybl.AddStrategy(strat);
+                                        strat.setCallOption(callOptions.get(c));
+                                        strat.setPutOption(putOptions.get(p));
+                                    realm.commitTransaction();
+                                    realm.beginTransaction();
+                                         strat.setScore(CallStrikePrice, PutStrikePrice, MedianPrice, stdDev, daysTillExpiry, FeesPerShare);
                                     realm.commitTransaction();
                                 }
                             }
@@ -791,6 +778,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             StrategyButton.setClickable(false);
         }
     }
+
 
 
 
