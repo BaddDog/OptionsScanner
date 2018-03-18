@@ -50,8 +50,6 @@ public class ProfitAnalyzer {
      } else return 0;
  }
 
-
-
     double phi(double x)
     {
         int sign;
