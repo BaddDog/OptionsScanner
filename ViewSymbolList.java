@@ -20,6 +20,8 @@ import java.security.acl.Owner;
 
 import io.realm.Realm;
 import io.realm.RealmList;
+import io.realm.RealmResults;
+import io.realm.Sort;
 
 
 public class ViewSymbolList extends Activity {
@@ -59,7 +61,6 @@ public class ViewSymbolList extends Activity {
         realm = Realm.getDefaultInstance();
         recyclerView = (RecyclerView) findViewById(R.id.symbol_recycler_view);
         RealmList sl = realm.where(SymbolList.class).findFirst().getSymbolsList();
-
         adapter = new ViewSymbolListAdapter(sl);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);

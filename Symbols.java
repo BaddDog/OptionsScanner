@@ -139,7 +139,8 @@ public class Symbols extends RealmObject {
     }
 
     public double getVolatility(long dayTillExpiry) {
-        return (volatility_slope*dayTillExpiry)+volatility_intercept;
+        double percentVolatility = (this.volatility_slope*dayTillExpiry)+this.volatility_intercept;
+        return percentVolatility/100*this.lastTradePrice;
     }
     public double getTrendBias(long dayTillExpiry) {
         return (trendbias_slope*dayTillExpiry)+trendbias_intercept;

@@ -149,7 +149,7 @@ public class HistoryData {
         return SmoothedPrices;
     }
 
-    public void CalculateIntervallicDeviation( double[] Prices, int intervallicDays, int period)
+    public void CalculatePercentDeviation(double[] Prices, int intervallicDays, int period)
     {
 
         // Calculate the standard deviation of changes to price over x days for the last period length of days

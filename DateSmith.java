@@ -106,7 +106,7 @@ public class DateSmith {
 
      int workdayDiff(Realm realm, Date d1, Date d2) {
 
-         LocalDate start = LocalDate.fromDateFields(d1);
+        LocalDate start = LocalDate.fromDateFields(d1);
         LocalDate end = LocalDate.fromDateFields(d2);
 
         start = toWorkday(start);

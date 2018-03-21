@@ -26,29 +26,30 @@ public class ProfitAnalyzer {
      }
 }
 
- public double CalcProfitability(double CallStrikePrice, double PutStrikePrice, double MedianPrice, double stdDev, long daysTillExpiry, double FeesPerShare) {
-     double prob, Score, score, probsum;
+    public double CalcProfitability(String OptionType, double StrikePrice, double MedianPrice, double stdDev, long daysTillExpiry, double TotalFees) {
+        double prob, Score, score, probsum;
 
-     if (CallStrikePrice > 0 && PutStrikePrice > 0) {
-         Score = 0;
-         probsum = 0;
-         for (int i = 40; i >= -40; i--) {
-             double sd = ((double) i / 10);
-             double price = MedianPrice + (sd * stdDev);
-             prob = percentile[i + 40];
-             probsum += prob;
-             if (price > CallStrikePrice) {
-                 Score += prob * (price - CallStrikePrice);
-             }
-             if (price < PutStrikePrice) {
-                 Score += prob * (PutStrikePrice - price);
-             }
-         }
-         Score -= FeesPerShare;
-         score = ((Score / FeesPerShare) * (250 / (double) daysTillExpiry) * 100);
-         return score;
-     } else return 0;
- }
+        if (StrikePrice > 0 && daysTillExpiry>0 && TotalFees>0) {
+            Score = 0;
+            probsum = 0;
+            for (int i = 40; i >= -40; i--) {
+                double sd = ((double) i / 10);
+                double price = MedianPrice + (sd * stdDev);
+                prob = percentile[i + 40];
+                probsum += prob;
+                if (OptionType=="CALL" && price>StrikePrice) {
+                    Score += prob * (price - StrikePrice);
+                }
+                if (OptionType=="PUT" && price<StrikePrice) {
+                    Score += prob * (StrikePrice - price);
+                }
+            }
+            Score -= TotalFees;
+            score = ((Score / TotalFees) * (250 / (double) daysTillExpiry) * 100);
+            return score;
+        } else return -999999;
+    }
+
 
     double phi(double x)
     {

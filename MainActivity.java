@@ -1,19 +1,13 @@
 package com.baddog.optionsscanner;
 
-import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.IntentFilter;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
-import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.design.widget.BottomNavigationView;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.widget.DividerItemDecoration;
-import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.JsonReader;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -35,29 +29,18 @@ import android.widget.Button;
 import android.widget.Toast;
 ;
 
-import com.google.gson.Gson;
-
-import org.apache.commons.math3.stat.regression.RegressionResults;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 
 
 import java.io.IOException;
 
 import io.realm.Realm;
-import io.realm.RealmAsyncTask;
-import io.realm.RealmConfiguration;
 import io.realm.RealmList;
-import io.realm.RealmObject;
-import io.realm.RealmQuery;
 import io.realm.RealmResults;
 
 
-import java.io.Serializable;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 
 
@@ -395,11 +378,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 }
                 days2 = days1 + 7;
                 days3 = days2 + 7;
-                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days1, SmoothedPrices.length);
+                HistoryJSON.CalculatePercentDeviation(SmoothedPrices, days1, SmoothedPrices.length);
                 double vol1 = HistoryJSON.IntervallicDeviation;
-                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days2, SmoothedPrices.length);
+                HistoryJSON.CalculatePercentDeviation(SmoothedPrices, days2, SmoothedPrices.length);
                 double vol2 = HistoryJSON.IntervallicDeviation;
-                HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days3, SmoothedPrices.length);
+                HistoryJSON.CalculatePercentDeviation(SmoothedPrices, days3, SmoothedPrices.length);
                 double vol3 = HistoryJSON.IntervallicDeviation;
                 // Calculate linear regression
                 SimpleRegression regression = new SimpleRegression();
@@ -682,7 +665,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
         }
     }
 
-
     private class CalcStrategies extends AsyncTask<String, String, String> {
 
         public Context context;
@@ -706,59 +688,60 @@ public class MainActivity extends Activity implements View.OnClickListener {
             // Scan through symbolID's and populate options data *******************************************************
             RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
             if (sym.isLoaded()) {
-
-                Log.d(TAG, "Debug 1");
-
                 int symbolID;
                 // Scan through all underlying symbols, then scan throug the symbols expiry dates
                 for (int i = 0; i < sym.size(); i++) {
                     // Scan through list of expiration dates for a symbol
                     Symbols sybl = sym.get(i);
                     RealmList<ExpirationDates> expiryDates = sybl.getExpiryDates();
-                    for (int j = 0; j < expiryDates.size(); j++) {
+                    if (expiryDates.size() > 0) {
+                        for (int j = 0; j < expiryDates.size(); j++) {
+                            // Find call and put options for the underlying symbol
+                            RealmList<Options> callOptions = expiryDates.get(j).getCallOptionsList();
+                            RealmList<Options> putOptions = expiryDates.get(j).getPutOptionsList();
+                            // Scan through call options and match up to put options
+                            if (callOptions.size() > 0) {
+                                for (int c = 0; c < callOptions.size(); c++) {
+                                    if (putOptions.size() > 0) {
+                                        for (int p = 0; p < putOptions.size(); p++) {
+                                            double MedianPrice;
+                                            Options callOption = callOptions.get(c);
+                                            Options putOption = callOptions.get(p);
+                                            double CallPremium = callOption.getPremium();
+                                            double PutPremium = putOption.getPremium();
+                                            double CallStrikePrice = callOption.getStrikeprice();
+                                            double PutStrikePrice = putOption.getStrikeprice();
+                                            long daysTillExpiry = callOption.getExpirationDateObject().getDaysTillExpiry();
 
-                        // Find call and put options for the underlying symbol
-                        RealmList<Options> callOptions = expiryDates.get(j).getCallOptionsList();
-                        RealmList<Options> putOptions = expiryDates.get(j).getPutOptionsList();
+                                            if (USE_TREND_BIAS)
+                                                MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice() + callOption.getExpirationDateObject().getUnderlyingSymbolObject().getTrendBias(daysTillExpiry);
+                                            else
+                                                MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice();
 
-                        // Scan through call options and match up to put options
-                        for (int c = 0; c < callOptions.size(); c++) {
+                                            double stdDev = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(daysTillExpiry);
+                                            int contracts = 5;
+                                            double transactionFee = 9.95;
+                                            double FeePerContract = 1.00;
+                                            double FeesPerShare =  ((transactionFee + (FeePerContract * contracts)) / (contracts * 100));
 
-                            for (int p = 0; p < putOptions.size(); p++) {
-                                double MedianPrice;
-                                Options callOption = callOptions.get(c);
-                                Options putOption = callOptions.get(p);
-                                double CallPremium = callOption.getPremium();
-                                double PutPremium = putOption.getPremium();
-                                double CallStrikePrice = callOption.getStrikePrice();
-                                double PutStrikePrice = putOption.getStrikePrice();
-                                long daysTillExpiry = callOption.getExpirationDateObject().getDaysTillExpiry();
+                                            // Check if this option par is possibly profitable and the option's expiry date is not too close
+                                            if (FeesPerShare / stdDev < COST_OF_VOLATILITY_LIMIT && CallPremium > 0 && PutPremium > 0 && daysTillExpiry >= MIN_DAYS_TILL_EXPIRY) {
 
-                                if(USE_TREND_BIAS)
-                                    MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice() + callOption.getExpirationDateObject().getUnderlyingSymbolObject().getTrendBias(daysTillExpiry);
-                                else MedianPrice = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice();
-
-                                double stdDev = callOption.getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(daysTillExpiry);
-                                int contracts = 5;
-                                double transactionFee = 9.95;
-                                double FeePerContract = 1.00;
-                                double FeesPerShare = CallPremium + PutPremium + ((transactionFee + (FeePerContract * contracts)) / (contracts * 100));
-
-                                // Check if this option par is possibly profitable and the option's expiry date is not too close
-                                if (FeesPerShare / stdDev < COST_OF_VOLATILITY_LIMIT && CallPremium > 0 && PutPremium > 0 && daysTillExpiry >= MIN_DAYS_TILL_EXPIRY) {
-
-                                    // Create a strategy realm object using call option and put option
-                                    realm.beginTransaction();
-                                        Strategy strat = realm.createObject(Strategy.class);
-                                    realm.commitTransaction();
-                                    realm.beginTransaction();
-                                        sybl.AddStrategy(strat);
-                                        strat.setCallOption(callOptions.get(c));
-                                        strat.setPutOption(putOptions.get(p));
-                                    realm.commitTransaction();
-                                    realm.beginTransaction();
-                                         strat.setScore(CallStrikePrice, PutStrikePrice, MedianPrice, stdDev, daysTillExpiry, FeesPerShare);
-                                    realm.commitTransaction();
+                                                // Create a strategy realm object using call option and put option
+                                                realm.beginTransaction();
+                                                    Strategy strat = realm.createObject(Strategy.class);
+                                                    realm.commitTransaction();
+                                                realm.beginTransaction();
+                                                        sybl.AddStrategy(strat);
+                                                        strat.setCallOption(callOptions.get(c));
+                                                        strat.setPutOption(putOptions.get(p));
+                                                realm.commitTransaction();
+                                                realm.beginTransaction();
+                                                    strat.setScore(CallStrikePrice, PutStrikePrice, MedianPrice, stdDev, daysTillExpiry, FeesPerShare);
+                                                realm.commitTransaction();
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -767,7 +750,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
             }
             return "";
         }
-
 
         @Override
         protected void onPostExecute(String token) {
@@ -778,8 +760,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
             StrategyButton.setClickable(false);
         }
     }
-
-
 
 
 }

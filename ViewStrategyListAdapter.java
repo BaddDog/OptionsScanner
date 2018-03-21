@@ -4,7 +4,6 @@ package com.baddog.optionsscanner;
  * Created by Brian on 2018-03-08.
  */
 
-import android.icu.text.DecimalFormat;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -54,8 +53,9 @@ class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStr
 
         //noinspection ConstantConditions
 
-        holder.title.setText(Long.toString(obj.getDaysTillExpiration()));
-        holder.title2.setText(Integer.toString((int)obj.getScore()));
+        holder.title2.setText(Long.toString(obj.getDaysTillExpiration()));
+        holder.title.setText(Integer.toString((int)obj.getCallOption().getScore()));
+        holder.title1.setText(Integer.toString((int)obj.getPutOption().getScore()));
         holder.title3.setText(Double.toString(obj.getCallPremium()));
         holder.title4.setText(Double.toString(obj.getPutPremium()));
         holder.title5.setText(Double.toString(obj.getCallStrikeprice()));
@@ -72,13 +72,14 @@ class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStr
 
 
     class MyViewHolder extends RecyclerView.ViewHolder {
-        TextView title, title2, title3, title4, title5, title6, title7;
+        TextView title, title1, title2, title3, title4, title5, title6, title7;
         CheckBox deletedCheckBox;
         public Strategy data;
 
         MyViewHolder(View view) {
             super(view);
-            title = (TextView) view.findViewById(R.id.score);
+            title = (TextView) view.findViewById(R.id.callscore);
+            title1 = (TextView) view.findViewById(R.id.putscore);
             title2 = (TextView) view.findViewById(R.id.daystillexpiry);
             title3 = (TextView) view.findViewById(R.id.callpremium);
             title4 = (TextView) view.findViewById(R.id.putpremium);

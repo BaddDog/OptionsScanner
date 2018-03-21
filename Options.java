@@ -20,8 +20,7 @@ public class Options extends RealmObject {
     private double StrikePrice;
     @LinkingObjects("CallOptionsList")
     private final RealmResults<ExpirationDates> CallExpiry = null;
-
-
+    private double Score;
     // Save pricing and open interest information at date time 'LastTradePriceDateTime'
     private double LastTradePrice;
     private long LastTradePriceDateTime;
@@ -33,12 +32,10 @@ public class Options extends RealmObject {
     public Options() {
     }
 
-    //public Options(RealmResults<Symbols> underlying) {this.underlyingSymbol = underlying;    }
+
     public void setOptionType(String type) {
         this.OptionType = type;
     }
-   // public void setLongExpiryDate(long exp) {this.LongExpiryDate = exp;    }
-   // public void setUnderlyingSymbolID(int id) {this.UnderlyingSymbolID = id; }
     public void setLastTradePrice(double price) {this.LastTradePrice = price;}
     public void setLastTradePriceDateTime(long datetime) {
         this.LastTradePriceDateTime = datetime;
@@ -47,6 +44,9 @@ public class Options extends RealmObject {
     public void setBidPrice(double price) {this.bidPrice = price;}
     public void setopenInterest(int op) {
         this.openInterest = op;
+    }
+    public void setScore(double sc) {
+        this.Score = sc;
     }
 
     public void setStrikePrice(double price) {
@@ -58,7 +58,9 @@ public class Options extends RealmObject {
     public long getLastTradePriceDateTime() {return this.getLastTradePriceDateTime();}
     public double getAskPrice() {return this.askPrice;}
     public double getBidPrice() {return this.bidPrice;}
-    public double getStrikePrice() {return this.StrikePrice;}
+    public double getScore() {return this.Score;}
+    public double getStrikeprice() {return this.StrikePrice;}
+
     //public long getLongExpiryDate() {return this.LongExpiryDate;}
    // public long getUnderlyingSymbolID() {return this.UnderlyingSymbolID;}
 

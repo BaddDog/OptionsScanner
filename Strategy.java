@@ -20,7 +20,7 @@ public class Strategy extends RealmObject {
     private Options callOption;
     private Options putOption;
     private StrategyTypes strategyType;
-    private double Score;
+
 
 
     public Strategy() {
@@ -63,15 +63,19 @@ public class Strategy extends RealmObject {
 
     public void setScore(double CallStrikePrice, double PutStrikePrice, double MedianPrice, double stdDev, long daysTillExpiry, double FeePerShare) {
         ProfitAnalyzer PA = new ProfitAnalyzer();
-        this.Score = PA.CalcProfitability(CallStrikePrice, PutStrikePrice, MedianPrice, stdDev, daysTillExpiry, FeePerShare);
+        double TotalCost = FeePerShare+this.callOption.getPremium();
+        this.callOption.setScore(PA.CalcProfitability("CALL",CallStrikePrice,MedianPrice, stdDev, daysTillExpiry, TotalCost));
+        TotalCost = FeePerShare+this.putOption.getPremium();
+        this.putOption.setScore(PA.CalcProfitability("PUT",PutStrikePrice,MedianPrice, stdDev, daysTillExpiry, TotalCost));
      }
     // Getters
     public long getDaysTillExpiration() {return this.callOption.getExpirationDateObject().getDaysTillExpiry();}
     public double getCallPremium() {return this.callOption.getPremium();}
-    public double getCallStrikeprice() {return this.callOption.getStrikePrice();}
+    public double getCallStrikeprice() {return this.callOption.getStrikeprice();}
     public double getPutPremium() {return this.putOption.getPremium();}
-    public double getPutStrikeprice() {return this.putOption.getStrikePrice();}
-    public double getScore() {return this.Score;}
+    public double getPutStrikeprice() {return this.putOption.getStrikeprice();}
     public Options getCallOption() {return this.callOption;}
+    public Options getPutOption() {return this.putOption;}
     public int getid() {return this.hashCode();}
+    public double getScore() {return this.callOption.getScore()+this.putOption.getScore();}
 }
