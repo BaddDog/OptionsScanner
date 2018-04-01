@@ -20,6 +20,8 @@ import java.security.acl.Owner;
 
 import io.realm.Realm;
 import io.realm.RealmList;
+import io.realm.RealmResults;
+import io.realm.Sort;
 
 
 public class ViewSymbolList extends Activity {
@@ -58,9 +60,9 @@ public class ViewSymbolList extends Activity {
         setContentView(R.layout.symbollist);
         realm = Realm.getDefaultInstance();
         recyclerView = (RecyclerView) findViewById(R.id.symbol_recycler_view);
-        RealmList sl = realm.where(SymbolList.class).findFirst().getSymbolsList();
-
-        adapter = new ViewSymbolListAdapter(sl);
+        final RealmList<Symbols> sl = realm.where(SymbolList.class).findFirst().getSymbolsList();
+        final RealmResults<Symbols> result = sl.sort("BestScore", Sort.DESCENDING);
+        adapter = new ViewSymbolListAdapter(realm, result);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
         recyclerView.setHasFixedSize(true);
@@ -75,6 +77,7 @@ public class ViewSymbolList extends Activity {
                 // symbol is selected, so start new activity
                 Intent it = new Intent(ViewSymbolList.this, ViewStrategyList.class);
                 it.putExtra("SYMBOL_INDEX", selectedPosition);
+                it.putExtra("SYMBOL_ID", result.get(selectedPosition).getSymbolID());
                 startActivity(it);
             }
         };

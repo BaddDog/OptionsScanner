@@ -47,9 +47,31 @@ public class ProfitAnalyzer {
          Score -= FeesPerShare;
          score = ((Score / FeesPerShare) * (250 / (double) daysTillExpiry) * 100);
          return score;
-     } else return 0;
+     } else return -999999;
  }
 
+    public double CalcOptionNetProfitability(String OptionType, double premium, double StrikePrice, double MedianPrice, double stdDev, long daysTillExpiry) {
+        double prob, Score;
+
+        if (StrikePrice > 0 ) {
+            Score = 0;
+            for (int i = 40; i >= -40; i--) {
+                double sd = ((double) i / 10);
+                double price = MedianPrice + (sd * stdDev);
+                prob = percentile[i + 40];
+
+                if (OptionType.equals("CALL") && price > StrikePrice) {
+                    Score += prob * (price - StrikePrice);
+                }
+
+                if (OptionType.equals("PUT") && price < StrikePrice) {
+                    Score += prob * (StrikePrice - price);
+                }
+            }
+            Score -= premium;
+            return Score;
+        } else return -999999;
+    }
     double phi(double x)
     {
         int sign;

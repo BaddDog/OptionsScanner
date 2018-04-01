@@ -8,6 +8,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
+import io.realm.RealmList;
+
 /**
  * Created by Brian on 2018-02-24.
  */
@@ -29,6 +31,7 @@ public class OptionsInfoRequestJSON {
         this.stream= false;
         this.mode = "";
     }
+
 
     OptionsInfoRequestJSON(List<Integer> ListID) {
         this.optionIds=ListID;

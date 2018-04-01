@@ -1,10 +1,15 @@
 package com.baddog.optionsscanner;
 
+import android.util.Log;
+
 import org.apache.commons.math3.special.Gamma;
 import org.joda.time.DateTime;
 
 import java.util.Enumeration;
 import java.util.List;
+
+import io.realm.Realm;
+import io.realm.RealmResults;
 
 /**
  * Created by Brian on 2018-02-24.
@@ -46,4 +51,7 @@ public class OptionInfoJSON {
 
 
     }
+
+
+
 }

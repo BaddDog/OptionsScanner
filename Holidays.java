@@ -38,10 +38,15 @@ public class Holidays extends RealmObject {
     }
 
     public long holidays(Realm realm, Date ExpiryDate1, Date ExpiryDate2) {
-        DateSmith ds = new DateSmith();
+        DateCalc ds = new DateCalc();
         long dn1 = ds.date2long(ExpiryDate1);
         long dn2 = ds.date2long(ExpiryDate2);
         final RealmQuery<Holidays> query = realm.where(Holidays.class).between("LongDate", dn1, dn2);
+        return query.count();
+    }
+
+    public long holidays(Realm realm, long nDate1, long nDate2) {
+        final RealmQuery<Holidays> query = realm.where(Holidays.class).between("LongDate", nDate1, nDate1);
         return query.count();
     }
 

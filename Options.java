@@ -1,11 +1,8 @@
 package com.baddog.optionsscanner;
 
-import io.realm.Realm;
 import io.realm.RealmObject;
 import io.realm.RealmResults;
 import io.realm.annotations.LinkingObjects;
-import io.realm.annotations.PrimaryKey;
-import io.realm.annotations.Required;
 
 /**
  * Created by Brian on 2018-01-12.
@@ -14,12 +11,12 @@ import io.realm.annotations.Required;
 
 public class Options extends RealmObject {
     private int OptionID;
-    private String OptionType;   // "Call or "Put"
+    private String OptionType;   // "CALL or "PUT"
     //private int UnderlyingSymbolID;
     //private long LongExpiryDate;
     private double StrikePrice;
     @LinkingObjects("CallOptionsList")
-    private final RealmResults<ExpirationDates> CallExpiry = null;
+    private final RealmResults<SymbolExpiryDates> OptionExpiry = null;
 
 
     // Save pricing and open interest information at date time 'LastTradePriceDateTime'
@@ -28,6 +25,8 @@ public class Options extends RealmObject {
     private double askPrice;
     private double bidPrice;
     private int openInterest;
+
+    private double netProfitability;
 
 
     public Options() {
@@ -48,27 +47,23 @@ public class Options extends RealmObject {
     public void setopenInterest(int op) {
         this.openInterest = op;
     }
-
     public void setStrikePrice(double price) {
         this.StrikePrice = price;
     }
     public void setOptionID(int ID) {this.OptionID = ID;}
+    public void setNetProfitability(double profitability) {
+        this.netProfitability = profitability;
+    }
 
     public double getLastTradePrice() {return this.LastTradePrice;}
     public long getLastTradePriceDateTime() {return this.getLastTradePriceDateTime();}
     public double getAskPrice() {return this.askPrice;}
     public double getBidPrice() {return this.bidPrice;}
     public double getStrikePrice() {return this.StrikePrice;}
-    //public long getLongExpiryDate() {return this.LongExpiryDate;}
-   // public long getUnderlyingSymbolID() {return this.UnderlyingSymbolID;}
-
-    //public int getDaysTillExpiry() {
-    //    DateSmith ds = new DateSmith();
-    //    return (int) (this.LongExpiryDate - ds.LongNow());
-    //}
-
-    public ExpirationDates getExpirationDateObject() {
-    return this.CallExpiry.first();
+    public double getnetProfitability() {return this.netProfitability;}
+    public String getOptionType() {return this.OptionType;}
+    public SymbolExpiryDates getExpirationDateObject() {
+    return this.OptionExpiry.first();
     }
 
     double getPremium () {

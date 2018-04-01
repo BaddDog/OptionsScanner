@@ -13,22 +13,25 @@ import android.widget.CheckBox;
 import android.widget.TextView;
 
 import io.realm.OrderedRealmCollection;
+import io.realm.Realm;
 import io.realm.RealmList;
 import io.realm.RealmRecyclerViewAdapter;
+import io.realm.RealmResults;
 
 
 class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStrategyListAdapter.MyViewHolder> {
 
     protected View.OnClickListener mClickListener;
+    private Realm realm;
 
-
-    ViewStrategyListAdapter(RealmList<Strategy> data) {
+    ViewStrategyListAdapter(Realm realm, RealmResults<Strategy> data) {
         super((OrderedRealmCollection<Strategy>) data, true);
         // Only set this if the model class has a primary key that is also a integer or long.
         // In that case, {@code getItemId(int)} must also be overridden to return the key.
         // See https://developer.android.com/reference/android/support/v7/widget/RecyclerView.Adapter.html#hasStableIds()
         // See https://developer.android.com/reference/android/support/v7/widget/RecyclerView.Adapter.html#getItemId(int)
         setHasStableIds(false);
+        this.realm = realm;
     }
 
 
@@ -54,13 +57,13 @@ class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStr
 
         //noinspection ConstantConditions
 
-        holder.title.setText(Long.toString(obj.getDaysTillExpiration()));
+        holder.title.setText(Long.toString(obj.getDaysTillExpiration(realm)));
         holder.title2.setText(Integer.toString((int)obj.getScore()));
         holder.title3.setText(Double.toString(obj.getCallPremium()));
         holder.title4.setText(Double.toString(obj.getPutPremium()));
         holder.title5.setText(Double.toString(obj.getCallStrikeprice()));
         holder.title6.setText(Double.toString(obj.getPutStrikeprice()));
-        double Volatility = obj.getCallOption().getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(obj.getDaysTillExpiration());
+        double Volatility = obj.getCallOption().getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(obj.getDaysTillExpiration(realm));
         holder.title7.setText(String.format("%.2f", Volatility ));
     }
 

@@ -10,14 +10,14 @@ import io.realm.annotations.LinkingObjects;
  * Created by Brian on 2018-03-04.
  */
 
-public class ExpirationDates extends RealmObject {
+public class SymbolExpiryDates extends RealmObject {
     private long LongExpiryDate;
     private RealmList<Options> CallOptionsList;
     private RealmList<Options> PutOptionsList;
     @LinkingObjects("ExpiryList")
     private final RealmResults<Symbols> underlying = null;
 
-    public ExpirationDates() {
+    public SymbolExpiryDates() {
         CallOptionsList = null;
         PutOptionsList = null;
 
@@ -34,11 +34,6 @@ public class ExpirationDates extends RealmObject {
         this.LongExpiryDate = longdate;
     }
 
-    public long getDaysTillExpiry() {
-        DateSmith DS = new DateSmith();
-        return LongExpiryDate-DS.LongNow();
-    }
-
     public void Add2CallOptionsList(Options opt) {
         this.CallOptionsList.add(opt);
     }
@@ -48,5 +43,8 @@ public class ExpirationDates extends RealmObject {
 
     public Symbols getUnderlyingSymbolObject() {return this.underlying.get(0); }
     public long getLongExpiryDate() {return this.LongExpiryDate; }
-
+    public long getDaysTillExpiry(Realm realm, long LongDate) {
+        TradeDateCalc tdc = new TradeDateCalc();
+        return tdc.TradeDaysTill(realm, LongDate);
+    }
 }

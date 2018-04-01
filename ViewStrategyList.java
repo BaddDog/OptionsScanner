@@ -20,6 +20,9 @@ import java.security.acl.Owner;
 
 import io.realm.Realm;
 import io.realm.RealmList;
+import io.realm.RealmQuery;
+import io.realm.RealmResults;
+import io.realm.Sort;
 
 
 public class ViewStrategyList extends Activity {
@@ -60,9 +63,12 @@ public class ViewStrategyList extends Activity {
         recyclerView = (RecyclerView) findViewById(R.id.strategy_recycler_view);
         Intent intent = getIntent();
         int SymIndex = intent.getIntExtra("SYMBOL_INDEX", 0);
-        RealmList sl = realm.where(SymbolList.class).findFirst().getSymbol(SymIndex).getStrategyList();
+        int SymID = intent.getIntExtra("SYMBOL_ID", 0);
 
-        adapter = new ViewStrategyListAdapter(sl);
+        Symbols sym = realm.where(Symbols.class).equalTo("symbolID",SymID).findFirst();
+        RealmResults sl = sym.getStrategyList().sort("Score",Sort.DESCENDING);
+
+        adapter = new ViewStrategyListAdapter(realm, sl);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
         recyclerView.setHasFixedSize(true);
@@ -77,7 +83,7 @@ public class ViewStrategyList extends Activity {
                 Strategy strat = holder.data;
                 // symbol is selected, so start new activity
                 Intent it = new Intent(ViewStrategyList.super.getBaseContext(), ViewStrategyList.class);
-                startActivity(it);
+                //startActivity(it);
             }
         };
 

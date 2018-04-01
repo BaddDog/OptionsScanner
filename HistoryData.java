@@ -58,7 +58,7 @@ public class HistoryData {
 
         Response response = client.newCall(request).execute();
 
-        DateSmith ds = new DateSmith();
+        DateCalc ds = new DateCalc();
         Date currentDate = new Date(System.currentTimeMillis());
         long intDate = ds.date2long(currentDate);
 
@@ -77,7 +77,7 @@ public class HistoryData {
         double Prices[] = new double[candleList.size()];
         for (int i = 0; i<candleList.size(); i++) {
             // Retrieve data from JSON
-            long priceDate = new DateSmith().StrDate2LongDate(candleList.get(i).start);
+            long priceDate = new DateCalc().StrDate2LongDate(candleList.get(i).start);
             double price = candleList.get(i).close;
             // Save in Array
             Prices[i]= price;
@@ -166,7 +166,8 @@ public class HistoryData {
         {
             double c1 = Prices[i+intervallicDays];
             double c2 = Prices[i];
-            xDiff = (c1-c2)/c2*100;
+
+            xDiff = (c1-c2);
             sumX += xDiff;
             aXDiff[n]=xDiff;
             n++;

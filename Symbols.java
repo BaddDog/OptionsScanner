@@ -10,7 +10,6 @@ import io.realm.Realm;
 import io.realm.RealmList;
 import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
-import io.realm.annotations.Required;
 
 
 /**
@@ -22,7 +21,9 @@ public class Symbols extends RealmObject {
     public static final String FIELD_ID = "id";
     private static AtomicInteger INTEGER_COUNTER = new AtomicInteger(0);
 
+
     private int symbolID;
+
     private String symbol;
     private double lastTradePrice;
     private long LastTradePriceDateTime;
@@ -31,8 +32,9 @@ public class Symbols extends RealmObject {
     private double volatility_intercept;
     private double trendbias_slope;
     private double trendbias_intercept;
-    private RealmList<ExpirationDates> ExpiryList;
+    private RealmList<SymbolExpiryDates> ExpiryList;
     private RealmList<Strategy> StrategyList;
+    private int BestScore;
 
     //  create() & delete() needs to be called inside a transaction.
     static void create(Realm realm) {
@@ -98,6 +100,17 @@ public class Symbols extends RealmObject {
         this.volatility_intercept = intercept;
     }
 
+    public void setBestScore() {
+        double BestScore = -9999999;
+        if(this.StrategyList != null) {
+            for (int i = 0; i < this.StrategyList.size(); i++) {
+                if (this.StrategyList.get(i).getScore() > BestScore) {
+                    BestScore = this.StrategyList.get(i).getScore();
+                }
+            }
+        }
+        this.BestScore = (int)BestScore;
+    }
 
     // getters
     public int getSymbolID() {
@@ -134,12 +147,12 @@ public class Symbols extends RealmObject {
         realm.commitTransaction();
     }
 
-    public void Add2ExpiryList(ExpirationDates exp) {
+    public void Add2ExpiryList(SymbolExpiryDates exp) {
         this.ExpiryList.add(exp);
     }
 
-    public double getVolatility(long dayTillExpiry) {
-        return (volatility_slope*dayTillExpiry)+volatility_intercept;
+    public double getVolatility(long WorkDaysTillExpiry) {
+        return (volatility_slope*WorkDaysTillExpiry)+volatility_intercept;
     }
     public double getTrendBias(long dayTillExpiry) {
         return (trendbias_slope*dayTillExpiry)+trendbias_intercept;
@@ -150,15 +163,7 @@ public class Symbols extends RealmObject {
         return Integer.toString(symbolID);
     }
 
-    public double getBestScore() {
-        double BestScore = -9999999;
-        for (int i =0; i<this.StrategyList.size(); i++) {
-            if(this.StrategyList.get(i).getScore()>BestScore) {
-                BestScore = this.StrategyList.get(i).getScore();
-            }
-        }
-        return BestScore;
-    }
+    public int getBestScore() { return this.BestScore;    }
 
     public void AddStrategy(Strategy strat) {
         this.StrategyList.add(strat);
