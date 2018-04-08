@@ -29,6 +29,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
 import io.realm.Realm;
+import io.realm.RealmResults;
+
 import android.content.BroadcastReceiver;
 
 
@@ -41,6 +43,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private static String TOKEN_URL = "https://login.questrade.com/oauth2/token";
     private static String OAUTH_URL = "https://login.questrade.com/oauth2/authorize";
 
+    private boolean NeedHistory;
+    private boolean NeedOptions;
 
     String OAUTH_TOKEN = null;
     String apiServer;
@@ -48,6 +52,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     WebView web;
 
     // IU Components
+    Button resetButton;
     Button authButton;
     Button OptionsButton;
     Button StrategyViewButton;
@@ -55,7 +60,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     ProgressBar ServiceProgressBar;
 
     SharedPreferences pref;
-    private Realm realm;
+
     MessageFromService receiver;
     private static final String TAG = "MyActivity";
 
@@ -67,6 +72,13 @@ public class MainActivity extends Activity implements View.OnClickListener {
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY);
        pref = getSharedPreferences("AppPref", MODE_PRIVATE);
 
+       // Flags set to false at startup
+        NeedHistory = false;
+        NeedOptions = false;
+
+       // reset is "Reset Database" button on main activity page *****************************************
+        resetButton = (Button) findViewById(R.id.Reset);
+        resetButton.setOnClickListener(this);
         // auth is "Sign in" button on main activity page *****************************************
         authButton = (Button) findViewById(R.id.auth);
         authButton.setOnClickListener(this);
@@ -115,6 +127,34 @@ public class MainActivity extends Activity implements View.OnClickListener {
         // do something when the button is clicked
 
         switch (v.getId() /*to get clicked view id**/) {
+            case R.id.Reset:
+                // Delete all info in realm database and set flags to indicate a rebuild of history and option info
+                NeedHistory = true;
+                NeedOptions = true;
+                // Initialization of realm database
+                Realm realm;
+                realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
+                realm.beginTransaction();
+                    // delete all realm objects
+                    realm.deleteAll();
+                    // Holiday data objects
+                    if (realm.where(Holidays.class).findAll().size() == 0) {
+                        // Initialize realm with basic data
+                        Holidays hol = new Holidays();
+                        hol.PopulateHolidays(realm);
+                    }
+                    // Symbol data objects
+                    if (realm.where(Symbols.class).findAll().size() == 0) {
+                        realm.beginTransaction();
+                        SymbolList xx = realm.createObject(SymbolList.class);
+                        realm.commitTransaction();
+                        xx.PopulateSymbols(realm);
+                    }
+                    getSymbolIDs(realm);
+                realm.commitTransaction();
+                realm.close();
+                updateTheTextView("Database Reset");
+                break;
             case R.id.auth:
                 AuthenticateQT();
                 break;
@@ -125,6 +165,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
                  //Intent serviceIntent = new Intent(this, OptionAnalysisService.class);
                  serviceIntent.putExtra("apiserver", apiServer);
                  serviceIntent.putExtra("oauthtoken", OAUTH_TOKEN);
+                 serviceIntent.putExtra("NeedHistory", NeedHistory);
+                 serviceIntent.putExtra("NeedOptions", NeedOptions);
 
                  startService(serviceIntent);
 
@@ -333,6 +375,30 @@ public class MainActivity extends Activity implements View.OnClickListener {
            // }
 
         }
+    }
+
+    public void getSymbolIDs(Realm realm) {
+        // Update realm.symbols with symbolID's
+        RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
+        if (sym.isLoaded()) {
+            String symbol;
+            for (int i = 0; i < sym.size(); i++) {
+                symbol = sym.get(i).getSymbol();
+                Thread.yield();
+                updateTheTextView("SymbolID of " + symbol);
+                SymbolData SymbolDataJSON = new SymbolData(apiServer, OAUTH_TOKEN, symbol);
+                try {
+                    SymbolDataJSON.run();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                int symID = SymbolDataJSON.getSymbolID(0);
+                realm.beginTransaction();
+                sym.get(i).setSymbolId(symID);     // realm write
+                realm.commitTransaction();
+            }
+        }
+
     }
 
 

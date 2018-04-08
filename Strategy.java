@@ -65,8 +65,9 @@ public class Strategy extends RealmObject {
         this.putOption = option;
     }
 
-    public void setScore(double CallProfitability, double PutProfitability, double AllFeePerShare, double TransactionFeePerShare,  long daysTillExpiry) {
-        this.Score = (CallProfitability+PutProfitability-AllFeePerShare)/AllFeePerShare*(250/daysTillExpiry) *100;
+
+    public void setScore(double NetCallProfitability, double NetPutProfitability, double AllFeesPerShare, long investmentdays) {
+        this.Score = (NetCallProfitability+NetPutProfitability-AllFeesPerShare)/AllFeesPerShare*(250/investmentdays) *100;
      }
     // Getters
     public long getDaysTillExpiration(Realm realm) {

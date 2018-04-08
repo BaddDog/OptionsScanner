@@ -62,6 +62,7 @@ public class Options extends RealmObject {
     public double getStrikePrice() {return this.StrikePrice;}
     public double getnetProfitability() {return this.netProfitability;}
     public String getOptionType() {return this.OptionType;}
+    public int getOptionID() {return this.OptionID;}
     public SymbolExpiryDates getExpirationDateObject() {
     return this.OptionExpiry.first();
     }
@@ -69,6 +70,6 @@ public class Options extends RealmObject {
     double getPremium () {
         if (this.askPrice>0) {
             return this.askPrice;
-        } else return this.LastTradePrice;
+        } else return  99.0;//this.LastTradePrice;
     }
 }

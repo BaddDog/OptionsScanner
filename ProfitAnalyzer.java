@@ -68,7 +68,6 @@ public class ProfitAnalyzer {
                     Score += prob * (StrikePrice - price);
                 }
             }
-            Score -= premium;
             return Score;
         } else return -999999;
     }

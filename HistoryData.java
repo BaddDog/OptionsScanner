@@ -130,7 +130,7 @@ public class HistoryData {
              // Price increased or no price change
                 if(pricechange>maximumPriceChange) {
                     // Price is outlier and needs to be adjusted
-                    PriceChangeFactor += (pricechange - maximumPriceChange);
+                    PriceChangeFactor -= (pricechange - maximumPriceChange);
                     counter++;
                 }
             }
@@ -138,7 +138,7 @@ public class HistoryData {
                 // Price decreased
                 if(abs(pricechange)>maximumPriceChange) {
                     // Price is outlier and needs to be adjusted
-                    PriceChangeFactor += (maximumPriceChange+pricechange);
+                    PriceChangeFactor += abs(pricechange)-maximumPriceChange;
                     counter++;
                 }
             }

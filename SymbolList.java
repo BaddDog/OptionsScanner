@@ -33,6 +33,7 @@ public class SymbolList extends RealmObject {
         AddSymbol(realm, "AAPL");
         AddSymbol(realm, "EEM");
         AddSymbol(realm, "IWM");
+
         AddSymbol(realm, "UVXY");
         AddSymbol(realm, "USO");
 
