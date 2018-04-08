@@ -43,6 +43,8 @@ public class OptionAnalysisService extends Service {
     private double COST_OF_VOLATILITY_LIMIT = .5;
     private boolean USE_TREND_BIAS = false;
     private double TARGET_TRADE_VALUE = 2000;
+    // counter to set Strategy.strategyID
+    int strategyIDCounter = 1;
 
     private Realm realm;
 
@@ -103,6 +105,7 @@ public class OptionAnalysisService extends Service {
 
 
             while (true) {
+                getSymbolIDs(realm, broadcastIntent);
                 Thread.yield();
                 getHistory(realm, broadcastIntent);
                 Thread.yield();
@@ -137,9 +140,6 @@ public class OptionAnalysisService extends Service {
     }
 
     public void getOptions(Realm realm, Intent broadcastIntent) {
-        // counter to set Strategy.strategyID
-        int strategyIDCounter = 1;
-
         // Scan through symbolID's and populate options data *******************************************************
         RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
         if (sym.isLoaded()) {
@@ -154,7 +154,7 @@ public class OptionAnalysisService extends Service {
                     Thread.yield();
                     broadcastIntent.putExtra("status", "Options of " + symbl.getSymbol());
                     sendBroadcast(broadcastIntent);
-                    double symbolLastTradePrice = symbl.getLastTradePrice();
+
                     OptionsData OptionsDataJSON = new OptionsData(apiServer, OAUTH_TOKEN, symbolID);
                     try {
                         OptionsDataJSON.run();
@@ -162,104 +162,12 @@ public class OptionAnalysisService extends Service {
                         e.printStackTrace();
                     }
                     // OptionsDataJSON contains all the options for a single underlying symbol (sym)
-                    DateCalc ds = new DateCalc();
-                    double maxStrike = symbolLastTradePrice * (PERCENT_STRIKE_RANGE / 100 + 1);
-                    double minStrike = symbolLastTradePrice / (PERCENT_STRIKE_RANGE / 100 + 1);
-                    long investmentDays = 0;
-                    long tradeDays = 0;
                     // Scan through the Options Expiry dates for a single underlying symbol.
                     if (OptionsDataJSON.getExpiryDateCount() > 0) {
                         for (int j = 0; j < OptionsDataJSON.getExpiryDateCount(); j++) {
                             // Get Expiry dates
                             OptionsJSON.OptionExpiryDateJSON ExpiryDateJSON = OptionsDataJSON.getExpiryDate(j);
-
-                            long LongExpiryDate = ds.StrDate2LongDate(ExpiryDateJSON.expiryDate);
-                            TradeDateCalc tdc = new TradeDateCalc();
-                            investmentDays = tdc.InvestmentDaysTill(realm, LongExpiryDate);
-                            tradeDays = tdc.TradeDaysTill(realm, LongExpiryDate);
-
-                            if (tradeDays > 2 && tradeDays <= MAX_DAYS_TILL_EXPIRY) {
-                                // Create realmObject of class ExpirationDates and add to ExpiryList
-                                realm.beginTransaction();
-                                SymbolExpiryDates exp = realm.createObject(SymbolExpiryDates.class);
-                                realm.commitTransaction();
-                                realm.beginTransaction();
-                                symbl.Add2ExpiryList(exp);
-                                // Set the long value of the expiry date
-                                exp.setLongExpiryDate(LongExpiryDate);
-                                // Get the days till expiry plus the number of workdays till expiry
-                                realm.commitTransaction();
-                                // Scan through List of option roots
-                                // ------- Option roots ------------------------------------------------------------------------------------------------
-                                boolean ChainFound = false;
-                                int k = 0;
-
-                                while (k < ExpiryDateJSON.getStrikePriceChainCount() && !ChainFound) {
-                                    //for (int k = 0; k < ExpiryDateJSON.getStrikePriceChainCount(); k++) {
-                                    OptionsJSON.ChainPerRootJSON ChainPerRoot = ExpiryDateJSON.getChainPerRoot(k);
-                                    if (ChainPerRoot.multiplier == 100) {
-                                        ChainFound = true;
-                                        // Scan through strike prices -------------------------------------------------------------------------------------
-                                        // Add strike prices to ChainPerRoot
-                                        for (int l = 0; l < ChainPerRoot.getStrikePricesCount(); l++) {
-                                            OptionsJSON.StrikePriceJSON StrikePrices = ChainPerRoot.getStrikePrice(l);
-                                            double strikeprice = StrikePrices.strikePrice;
-
-                                            // Only save options to realm that are within PERCENT_STRIKE_RANGE
-                                            if (strikeprice >= minStrike && strikeprice <= maxStrike) {
-                                                realm.beginTransaction();
-                                                // -- Add Call Options to the realmlist  CallOptionsList found in ExpirationDates ---------------------------------
-                                                // Save call symbol ID
-                                                Options opt1 = realm.createObject(Options.class);
-                                                opt1.setOptionID(StrikePrices.callSymbolId);
-                                                opt1.setOptionType("CALL");
-                                                opt1.setStrikePrice(strikeprice);
-
-                                                // Add options realm object to OptionsList in expiratedate realm object
-                                                exp.Add2CallOptionsList(opt1);
-                                                // -- Add Put Options to the realmlist  PutOptionsList found in ExpirationDates ---------------------------------
-                                                // Save put symbol ID
-
-                                                Options opt2 = realm.createObject(Options.class);
-                                                opt2.setOptionID(StrikePrices.putSymbolId);
-                                                opt2.setOptionType("PUT");
-                                                opt2.setStrikePrice(strikeprice);
-
-                                                // Add options realm object to OptionsList in symbols realm object
-                                                exp.Add2PutOptionsList(opt2);
-                                                realm.commitTransaction();
-                                            }
-                                        }
-                                    }
-                                    k++;   // increment k index for chain per root
-                                }    // ---------- End of Scan through Option roots --------------------------------------------------------------
-
-                                // ---- Create the strategies for this expiry date -------------------------------------------------------------------------------------------
-                                // Find call and put options for the underlying symbol
-                                RealmList<Options> callOptions = exp.getCallOptionsList();
-                                RealmList<Options> putOptions = exp.getPutOptionsList();
-
-                                // Scan through call options and match up to put options
-                                for (int c = 0; c < callOptions.size(); c++) {
-                                    Options callOption = callOptions.get(c);
-
-                                    for (int p = 0; p < putOptions.size(); p++) {
-                                        Options putOption = putOptions.get(p);
-
-                                        // Create a strategy realm object using call option and put option
-                                        realm.beginTransaction();
-                                        Strategy strat = realm.createObject(Strategy.class);
-                                        strat.setID(strategyIDCounter);
-                                        strategyIDCounter++;
-                                        realm.commitTransaction();
-                                        realm.beginTransaction();
-                                        symbl.AddStrategy(strat);
-                                        strat.setCallOption(callOption);
-                                        strat.setPutOption(putOption);
-                                        realm.commitTransaction();
-                                    }
-                                }
-                            }
+                            getSymbolExpiryDateData(symbl, ExpiryDateJSON);
                         }
                     }
                 }
@@ -269,109 +177,31 @@ public class OptionAnalysisService extends Service {
     }
 
     public void updateOptions(Realm realm, Intent broadcastIntent) {
-        long investmentDays = 0;
-        long tradeDays = 0;
 
         // Scan through symbolID's and populate options data *******************************************************
         RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
         if (sym.isLoaded()) {
-            DateCalc ds = new DateCalc();
-
             // Scan through all underlying symbols, obtain all the options associated with each underlying symbol.
-            // -------- Underlying Symbols
-            List<Integer> OptionList = new ArrayList<Integer>();
-
-            for (int i = 0; i < sym.size(); i++) {
+           for (int i = 0; i < sym.size(); i++) {
                 Symbols symbl = sym.get(i);
-                int symbolID = symbl.getSymbolID();
                 Thread.yield();
-                broadcastIntent.putExtra("status", "Update of  " + symbl.getSymbol());
+                broadcastIntent.putExtra("status", "Update option premiums of  " + symbl.getSymbol());
                 sendBroadcast(broadcastIntent);
-                double symbolLastTradePrice = symbl.getLastTradePrice();
-
-                RealmList<SymbolExpiryDates> exp = symbl.getExpiryDates();
-                for (int j = 0; j < exp.size(); j++) {
-                    RealmList<Options> CallOptions = exp.get(j).getCallOptionsList();
-                    long LongExpiryDate = exp.get(j).getLongExpiryDate();
-                    TradeDateCalc tdc = new TradeDateCalc();
-                    investmentDays = tdc.InvestmentDaysTill(realm, LongExpiryDate);
-                    tradeDays = tdc.TradeDaysTill(realm, LongExpiryDate);
-                    // Create List of Options
-                    for (int k = 0; k < CallOptions.size(); k++) {
-                        OptionList.add(CallOptions.get(k).getOptionID());
-                    }
-                    RealmList<Options> PutOptions = exp.get(j).getPutOptionsList();
-                    for (int k = 0; k < PutOptions.size(); k++) {
-                        OptionList.add(PutOptions.get(k).getOptionID());
-                    }
-                    OptionInfoJSON OptionInformation = null;
-                    // --- Combine Call Options and Put Options together in one list for use with GSON ---------------------------------
-                    OptionsInfoRequestJSON OptionsInfoRequest = new OptionsInfoRequestJSON(OptionList);
-                    OptionsInfo OptionsQuoteJSON = new OptionsInfo(apiServer, OAUTH_TOKEN);
-                    try {
-                        OptionInformation = OptionsQuoteJSON.run(OptionsInfoRequest);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    // Use OptionInformation to populate realm database Options
-
-                    if (OptionInformation != null) {
-                        for (int m = 0; m < OptionInformation.optionQuotes.size(); m++) {
-                            OptionInfoJSON.OptionQuoteJSON quote = OptionInformation.optionQuotes.get(m);
-                            // Find the realm object and update it using OptionInformation
-                            RealmResults<Options> opt = realm.where(Options.class).equalTo("OptionID", quote.symbolId).findAll();
-                            if (opt.size() > 0) {
-                                Options option = opt.get(0);
-                                realm.beginTransaction();
-                                option.setLastTradePrice(quote.lastTradePrice);
-                                option.setLastTradePriceDateTime(ds.StrDate2LongDateTime(quote.lastTradeTime));
-                                option.setopenInterest(quote.openInterest);
-                                option.setAskPrice(quote.askPrice);
-                                option.setBidPrice(quote.bidPrice);
-                                realm.commitTransaction();
-                                realm.beginTransaction();
-                                double MedianPrice;
-                                if (USE_TREND_BIAS)
-                                    MedianPrice = symbolLastTradePrice +
-                                            symbl.getTrendBias(tradeDays);
-                                else MedianPrice = symbolLastTradePrice;
-
-                                ProfitAnalyzer PA = new ProfitAnalyzer();
-                                double np = PA.CalcOptionNetProfitability(option.getOptionType(), option.getPremium(), option.getStrikePrice(), MedianPrice,
-                                        symbl.getVolatility(tradeDays), investmentDays);
-                                option.setNetProfitability(np);
-                                realm.commitTransaction();
-                            } else Log.d(TAG, "RealmResults<Options> opt of zero size");
-                        }
-                    }
-                    OptionList.clear();
-                }
+                updateSingleSymbolStrategiesPriceInfo(symbl);
             }
+
             for (int i = 0; i < sym.size(); i++) {
                 Symbols symbl = sym.get(i);
-                int symbolID = symbl.getSymbolID();
-
+                Thread.yield();
+                broadcastIntent.putExtra("status", "Update strategies of  " + symbl.getSymbol());
+                sendBroadcast(broadcastIntent);
                 RealmList<Strategy> strats = symbl.getStrategyList();
                 for (int j = 0; j < strats.size(); j++) {
                     Strategy strat = strats.get(j);
-                    Options callOption = strat.getCallOption();
-                    Options putOption = strat.getPutOption();
-                    TradeDateCalc tdc = new TradeDateCalc();
-                    investmentDays = tdc.InvestmentDaysTill(realm, callOption.getExpirationDateObject().getLongExpiryDate());
-                    tradeDays = tdc.TradeDaysTill(realm, callOption.getExpirationDateObject().getLongExpiryDate());
-                    double CallPremium = callOption.getPremium();
-                    double PutPremium = putOption.getPremium();
-                    int contracts = (int) (TARGET_TRADE_VALUE / (CallPremium + PutPremium) / 100);
-                    double transactionFee = 9.95;
-                    double FeePerContract = 1.00;
-                    double TransactionFeesPerShare = (transactionFee + (FeePerContract * contracts)) * 2 / (contracts * 100);
-                    double AllCostsPerShare = TransactionFeesPerShare + CallPremium + PutPremium;
-                    realm.beginTransaction();
-                    strat.setScore(strat.getCallOption().getnetProfitability(), strat.getPutOption().getnetProfitability(), AllCostsPerShare, investmentDays);
-                    realm.commitTransaction();
+                    updateStrategyScores(strat);
                 }
                 realm.beginTransaction();
-                symbl.setBestScore();
+                   symbl.setBestScore();
                 realm.commitTransaction();
             }
         }
@@ -397,14 +227,13 @@ public class OptionAnalysisService extends Service {
         realm.commitTransaction();
     }
 
-    public void getSymbolPriceInfo(RealmResults<Symbols> sym ) {
+    public void getSymbolPriceInfo(RealmResults<Symbols> sym) {
         if (sym.isLoaded()) {
             for (int i = 0; i < sym.size(); i++) {
                 getSingleSymbolPriceInfo(sym.get(i));
             }
         }
     }
-
 
 
     public void getSingleSymbolVolatilityInfo(Symbols symbol, HistoryData HistoryJSON) {
@@ -454,7 +283,7 @@ public class OptionAnalysisService extends Service {
         realm.commitTransaction();
     }
 
-    public void  getSymbolVolatilityInfo(RealmResults<Symbols> sym ) {
+    public void getSymbolVolatilityInfo(RealmResults<Symbols> sym) {
         // Collect History. Scan through all the symbols *****************************************************************************
         DateCalc ds = new DateCalc();
         HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow() - LOOK_BACK), ds.long2StrDate(ds.LongNow()));
@@ -463,8 +292,228 @@ public class OptionAnalysisService extends Service {
         }
     }
 
+    public boolean getChainPerRoot(SymbolExpiryDates exp, OptionsJSON.ChainPerRootJSON ChainPerRoot) {
+        boolean ChainFound = false;
+        double maxStrike = exp.getUnderlyingSymbolObject().getLastTradePrice() * (PERCENT_STRIKE_RANGE / 100 + 1);
+        double minStrike = exp.getUnderlyingSymbolObject().getLastTradePrice() / (PERCENT_STRIKE_RANGE / 100 + 1);
+        if (ChainPerRoot.multiplier == 100) {
+            ChainFound = true;
+            // Scan through strike prices -------------------------------------------------------------------------------------
+            // Add strike prices to ChainPerRoot
+            for (int l = 0; l < ChainPerRoot.getStrikePricesCount(); l++) {
+                OptionsJSON.StrikePriceJSON StrikePrices = ChainPerRoot.getStrikePrice(l);
+                double strikeprice = StrikePrices.strikePrice;
+
+                // Only save options to realm that are within PERCENT_STRIKE_RANGE
+                if (strikeprice >= minStrike && strikeprice <= maxStrike) {
+                    realm.beginTransaction();
+                    // -- Add Call Options to the realmlist  CallOptionsList found in ExpirationDates ---------------------------------
+                    // Save call symbol ID
+                    Options opt1 = realm.createObject(Options.class);
+                    opt1.setOptionID(StrikePrices.callSymbolId);
+                    opt1.setOptionType("CALL");
+                    opt1.setStrikePrice(strikeprice);
+
+                    // Add options realm object to OptionsList in expiratedate realm object
+                    exp.Add2CallOptionsList(opt1);
+                    // -- Add Put Options to the realmlist  PutOptionsList found in ExpirationDates ---------------------------------
+                    // Save put symbol ID
+
+                    Options opt2 = realm.createObject(Options.class);
+                    opt2.setOptionID(StrikePrices.putSymbolId);
+                    opt2.setOptionType("PUT");
+                    opt2.setStrikePrice(strikeprice);
+
+                    // Add options realm object to OptionsList in symbols realm object
+                    exp.Add2PutOptionsList(opt2);
+                    realm.commitTransaction();
+                }
+            }
+        }
+        return ChainFound;
+    }
+
+    public void CreateSymbolExpiryDateStrategies(SymbolExpiryDates exp) {
+        // ---- Create the strategies for this expiry date -------------------------------------------------------------------------------------------
+        // Find call and put options for the underlying symbol
+        RealmList<Options> callOptions = exp.getCallOptionsList();
+        RealmList<Options> putOptions = exp.getPutOptionsList();
+
+        // Scan through call options and match up to put options
+        for(int c = 0; c<callOptions.size();c++) {
+            Options callOption = callOptions.get(c);
+
+            for (int p = 0; p < putOptions.size(); p++) {
+                Options putOption = putOptions.get(p);
+
+                // Create a strategy realm object using call option and put option
+                realm.beginTransaction();
+                    Strategy strat = realm.createObject(Strategy.class);
+                    strat.setID(strategyIDCounter);
+                    strategyIDCounter++;
+                realm.commitTransaction();
+                realm.beginTransaction();
+                    exp.getUnderlyingSymbolObject().AddStrategy(strat);
+                    strat.setCallOption(callOption);
+                    strat.setPutOption(putOption);
+                realm.commitTransaction();
+            }
+        }
+    }
+
+    public void getSymbolExpiryDateData(Symbols symbl, OptionsJSON.OptionExpiryDateJSON ExpiryDateJSON) {
+        TradeDateCalc tdc = new TradeDateCalc();
+        long LongExpiryDate = tdc.StrDate2LongDate(ExpiryDateJSON.expiryDate);
+        int tradeDays = tdc.TradeDaysTill(realm, LongExpiryDate);
+
+        if (tradeDays > 2 && tradeDays <= MAX_DAYS_TILL_EXPIRY) {
+            // Create realmObject of class ExpirationDates and add to ExpiryList
+            realm.beginTransaction();
+            SymbolExpiryDates exp = realm.createObject(SymbolExpiryDates.class);
+            realm.commitTransaction();
+            realm.beginTransaction();
+            symbl.Add2ExpiryList(exp);
+            // Set the long value of the expiry date
+            exp.setLongExpiryDate(LongExpiryDate);
+            // Get the days till expiry plus the number of workdays till expiry
+            realm.commitTransaction();
+            // Scan through List of option roots
+            // ------- Option roots ------------------------------------------------------------------------------------------------
+            boolean ChainFound = false;
+            int k = 0;
+
+            while (k < ExpiryDateJSON.getStrikePriceChainCount() && !ChainFound) {
+                OptionsJSON.ChainPerRootJSON ChainPerRoot = ExpiryDateJSON.getChainPerRoot(k);
+                // Get the call and put option objects for the chain
+                // Stop getting chains once the first valid chain is found
+                ChainFound = getChainPerRoot(exp, ChainPerRoot);
+                k++;   // increment k index for chain per root
+            }
+
+            // Create the various strategies for an symbol's expiry date
+            CreateSymbolExpiryDateStrategies(exp);
+        }
+    }
+
+    public void updateSingleStrategyPriceInfo(SymbolExpiryDates RootChain, OptionInfoJSON.OptionQuoteJSON quote) {
+        // Find the realm object and update it using OptionInformation
+        RealmResults<Options> opt = realm.where(Options.class).equalTo("OptionID", quote.symbolId).findAll();
+
+        long LongExpiryDate = RootChain.getLongExpiryDate();
+        TradeDateCalc tdc = new TradeDateCalc();
+        int investmentDays = tdc.InvestmentDaysTill(realm, LongExpiryDate);
+        int tradeDays = tdc.TradeDaysTill(realm, LongExpiryDate);
+        Symbols symbl = RootChain.getUnderlyingSymbolObject();
+        if (opt.size() > 0) {
+            Options option = opt.get(0);
+            realm.beginTransaction();
+            option.setLastTradePrice(quote.lastTradePrice);
+            option.setLastTradePriceDateTime(tdc.StrDate2LongDateTime(quote.lastTradeTime));
+            option.setopenInterest(quote.openInterest);
+            option.setAskPrice(quote.askPrice);
+            option.setBidPrice(quote.bidPrice);
+            realm.commitTransaction();
+            realm.beginTransaction();
+            double MedianPrice;
+            if (USE_TREND_BIAS)
+                MedianPrice = symbl.getLastTradePrice() +
+                        symbl.getTrendBias(tradeDays);
+            else MedianPrice = symbl.getLastTradePrice();
+
+            ProfitAnalyzer PA = new ProfitAnalyzer();
+            double np = PA.CalcOptionNetProfitability(option.getOptionType(), option.getPremium(), option.getStrikePrice(), MedianPrice,
+                    symbl.getVolatility(tradeDays), investmentDays);
+            option.setNetProfitability(np);
+            realm.commitTransaction();
+        } else Log.d(TAG, "RealmResults<Options> opt of zero size");
+    }
 
 
+    public void updateSymbolExpiryDateStrategyPriceInfo(SymbolExpiryDates RootChain) {
+        List<Integer> OptionList = new ArrayList<Integer>();
+        RealmList<Options> CallOptions = RootChain.getCallOptionsList();
+
+        // Create List of Options
+        for (int k = 0; k < CallOptions.size(); k++) {
+            OptionList.add(CallOptions.get(k).getOptionID());
+        }
+        RealmList<Options> PutOptions = RootChain.getPutOptionsList();
+        for (int k = 0; k < PutOptions.size(); k++) {
+            OptionList.add(PutOptions.get(k).getOptionID());
+        }
+        OptionInfoJSON OptionInformation = null;
+        // --- Combine Call Options and Put Options together in one list for use with GSON ---------------------------------
+        OptionsInfoRequestJSON OptionsInfoRequest = new OptionsInfoRequestJSON(OptionList);
+        OptionsInfo OptionsQuoteJSON = new OptionsInfo(apiServer, OAUTH_TOKEN);
+        try {
+            OptionInformation = OptionsQuoteJSON.run(OptionsInfoRequest);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // Use OptionInformation to populate realm database Options
+
+        if (OptionInformation != null) {
+            for (int m = 0; m < OptionInformation.optionQuotes.size(); m++) {
+                OptionInfoJSON.OptionQuoteJSON quote = OptionInformation.optionQuotes.get(m);
+                // Find the realm object and update it using OptionInformation
+                updateSingleStrategyPriceInfo(RootChain, quote);
+            }
+        }
+        OptionList.clear();
+    }
+
+    public void updateSingleSymbolStrategiesPriceInfo(Symbols symbl) {
+        RealmList<SymbolExpiryDates> exp = symbl.getExpiryDates();
+        for (int j = 0; j < exp.size(); j++) {
+            SymbolExpiryDates RootChain = exp.get(j);
+            updateSymbolExpiryDateStrategyPriceInfo(RootChain);
+        }
+    }
+
+    public void updateStrategyScores(Strategy strat) {
+        Options callOption = strat.getCallOption();
+        Options putOption = strat.getPutOption();
+        TradeDateCalc tdc = new TradeDateCalc();
+        int investmentDays = tdc.InvestmentDaysTill(realm, callOption.getExpirationDateObject().getLongExpiryDate());
+        int tradeDays = tdc.TradeDaysTill(realm, callOption.getExpirationDateObject().getLongExpiryDate());
+        double CallPremium = callOption.getPremium();
+        double PutPremium = putOption.getPremium();
+        int contracts = (int) (TARGET_TRADE_VALUE / (CallPremium + PutPremium) / 100);
+        double transactionFee = 9.95;
+        double FeePerContract = 1.00;
+        double TransactionFeesPerShare = (transactionFee + (FeePerContract * contracts)) * 2 / (contracts * 100);
+        double AllCostsPerShare = TransactionFeesPerShare + CallPremium + PutPremium;
+        if (CallPremium > 0 && PutPremium > 0) {
+            realm.beginTransaction();
+                strat.setScore(strat.getCallOption().getnetProfitability(), strat.getPutOption().getnetProfitability(), AllCostsPerShare, investmentDays);
+            realm.commitTransaction();
+        } 
+    }
+
+    public void getSymbolIDs(Realm realm, Intent broadcastIntent) {
+        // Update realm.symbols with symbolID's
+        RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
+        if (sym.isLoaded()) {
+            String symbol;
+            for (int i = 0; i < sym.size(); i++) {
+                symbol = sym.get(i).getSymbol();
+                Thread.yield();
+                broadcastIntent.putExtra("status", "Update SymbolID of " + symbol);
+                sendBroadcast(broadcastIntent);
+                SymbolData SymbolDataJSON = new SymbolData(apiServer, OAUTH_TOKEN, symbol);
+                try {
+                    SymbolDataJSON.run();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                int symID = SymbolDataJSON.getSymbolID(0);
+                realm.beginTransaction();
+                sym.get(i).setSymbolId(symID);     // realm write
+                realm.commitTransaction();
+            }
+        }
+
+    }
 
 }
 

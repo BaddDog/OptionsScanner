@@ -102,7 +102,7 @@ public class Symbols extends RealmObject {
 
     public void setBestScore() {
         double BestScore = -9999999;
-        if(this.StrategyList != null) {
+        if(this.StrategyList.size()>0) {
             for (int i = 0; i < this.StrategyList.size(); i++) {
                 if (this.StrategyList.get(i).getScore() > BestScore) {
                     BestScore = this.StrategyList.get(i).getScore();

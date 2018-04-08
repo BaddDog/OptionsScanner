@@ -138,20 +138,20 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     // delete all realm objects
                     realm.deleteAll();
                     // Holiday data objects
-                    if (realm.where(Holidays.class).findAll().size() == 0) {
-                        // Initialize realm with basic data
-                        Holidays hol = new Holidays();
-                        hol.PopulateHolidays(realm);
-                    }
-                    // Symbol data objects
-                    if (realm.where(Symbols.class).findAll().size() == 0) {
-                        realm.beginTransaction();
-                        SymbolList xx = realm.createObject(SymbolList.class);
-                        realm.commitTransaction();
-                        xx.PopulateSymbols(realm);
-                    }
-                    getSymbolIDs(realm);
                 realm.commitTransaction();
+                if (realm.where(Holidays.class).findAll().size() == 0) {
+                    // Initialize realm with basic data
+                    Holidays hol = new Holidays();
+                    hol.PopulateHolidays(realm);
+                }
+                // Symbol data objects
+                if (realm.where(Symbols.class).findAll().size() == 0) {
+                    realm.beginTransaction();
+                     SymbolList xx = realm.createObject(SymbolList.class);
+                    realm.commitTransaction();
+                    xx.PopulateSymbols(realm);
+                }
+
                 realm.close();
                 updateTheTextView("Database Reset");
                 break;
@@ -377,29 +377,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
         }
     }
 
-    public void getSymbolIDs(Realm realm) {
-        // Update realm.symbols with symbolID's
-        RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
-        if (sym.isLoaded()) {
-            String symbol;
-            for (int i = 0; i < sym.size(); i++) {
-                symbol = sym.get(i).getSymbol();
-                Thread.yield();
-                updateTheTextView("SymbolID of " + symbol);
-                SymbolData SymbolDataJSON = new SymbolData(apiServer, OAUTH_TOKEN, symbol);
-                try {
-                    SymbolDataJSON.run();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                int symID = SymbolDataJSON.getSymbolID(0);
-                realm.beginTransaction();
-                sym.get(i).setSymbolId(symID);     // realm write
-                realm.commitTransaction();
-            }
-        }
-
-    }
 
 
 }

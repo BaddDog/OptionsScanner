@@ -70,6 +70,6 @@ public class Options extends RealmObject {
     double getPremium () {
         if (this.askPrice>0) {
             return this.askPrice;
-        } else return  99.0;//this.LastTradePrice;
+        } else return  this.LastTradePrice;
     }
 }

@@ -36,7 +36,7 @@ public class SymbolList extends RealmObject {
 
         AddSymbol(realm, "UVXY");
         AddSymbol(realm, "USO");
-
+/*
               AddSymbol(realm, "GLD");
                        AddSymbol(realm, "XLE");
                                 AddSymbol(realm, "XOP");
@@ -71,7 +71,7 @@ AddSymbol(realm, "TSLA");
                                                 AddSymbol(realm, "FCX");
    //                                                     AddSymbol(realm, "TSL");
    //                                                             AddSymbol(realm, "QQQ");
-
+*/
     }
     private void AddSymbol(Realm realm, String symbol) {
         realm.beginTransaction();
