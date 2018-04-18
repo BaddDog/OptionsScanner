@@ -25,6 +25,7 @@ public class OptionScannerApplication extends Application {
         Realm.init(this);
         RealmConfiguration config = new RealmConfiguration.Builder()
               //  .inMemory()
+
                 .name("myrealm.realm").build();
         Realm.setDefaultConfiguration(config);
 

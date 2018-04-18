@@ -27,7 +27,7 @@ public class OptionsData {
         this.AuthorizationKey = "Bearer "+ Key;
     }
 
-    public void run() throws Exception {
+    public int run() throws Exception {
         Request request = new Request.Builder()
                 .url(Url)
                 .get()
@@ -45,6 +45,9 @@ public class OptionsData {
             Reader reader = new InputStreamReader(is, "UTF-8");
             optJSON = gson2.fromJson(reader ,OptionsJSON.class);
         }
+        int code = response.code();
+        response.close();
+        return code;
     }
 
 

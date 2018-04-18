@@ -65,8 +65,9 @@ public class ViewStrategyList extends Activity {
         int SymIndex = intent.getIntExtra("SYMBOL_INDEX", 0);
         int SymID = intent.getIntExtra("SYMBOL_ID", 0);
 
-        Symbols sym = realm.where(Symbols.class).equalTo("symbolID",SymID).findFirst();
-        RealmResults sl = sym.getStrategyList().sort("Score",Sort.DESCENDING);
+        //Symbols sym = realm.where(Symbols.class).equalTo("symbolID",SymID).findFirst();
+        //RealmResults sl = sym.getStrategyList().sort("Score",Sort.DESCENDING);
+        RealmResults <Strategy> sl = realm.where(Strategy.class).equalTo("underlyingSymbol.symbolID",SymID ).greaterThan("Score", 0.0).sort("Score",Sort.DESCENDING).findAll();
 
         adapter = new ViewStrategyListAdapter(realm, sl);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));

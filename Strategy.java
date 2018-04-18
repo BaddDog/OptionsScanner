@@ -24,6 +24,12 @@ public class Strategy extends RealmObject {
     private Options putOption;
     private StrategyTypes strategyType;
     private double Score;
+    private double Score2;
+
+    @LinkingObjects("StrategyList")
+    private final RealmResults<Symbols> underlyingSymbol = null;
+
+
     public Strategy() {
     }
 
@@ -64,11 +70,17 @@ public class Strategy extends RealmObject {
     public void setPutOption(Options option) {
         this.putOption = option;
     }
+    public void setScore(double score) {
+        this.Score = score;
+    }
+    public void setScore2(double score) { this.Score2 = Score; }
 
-
-    public void setScore(double NetCallProfitability, double NetPutProfitability, double AllFeesPerShare, long investmentdays) {
+    public void calcScore(double NetCallProfitability, double NetPutProfitability, double AllFeesPerShare, long investmentdays) {
         this.Score = (NetCallProfitability+NetPutProfitability-AllFeesPerShare)/AllFeesPerShare*(250/investmentdays) *100;
      }
+    public void calcScore2(double NetCallProfitability, double NetPutProfitability, double AllFeesPerShare, long investmentdays) {
+        this.Score2 = (NetCallProfitability+NetPutProfitability-AllFeesPerShare)/AllFeesPerShare*(250/investmentdays) *100;
+    }
     // Getters
     public long getDaysTillExpiration(Realm realm) {
         TradeDateCalc tdc = new TradeDateCalc();
@@ -80,7 +92,9 @@ public class Strategy extends RealmObject {
     public double getPutPremium() {return this.putOption.getPremium();}
     public double getPutStrikeprice() {return this.putOption.getStrikePrice();}
     public double getScore() {return this.Score;}
+    public double getScore2() {return this.Score2;}
     public Options getCallOption() {return this.callOption;}
     public Options getPutOption() {return this.putOption;}
     public int getid() {return this.hashCode();}
+
 }

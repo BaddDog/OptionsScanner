@@ -5,6 +5,7 @@ import org.joda.time.Days;
 import org.joda.time.LocalDate;
 import org.joda.time.Weeks;
 
+import java.util.Calendar;
 import java.util.Date;
 
 
@@ -27,19 +28,28 @@ public class TradeDateCalc extends DateCalc {
 
         Date d1 =this.long2Date(longStartDate);
         Date d2 =this.long2Date(longEndDate);
-        LocalDate start = LocalDate.fromDateFields(d1);
-        LocalDate end = LocalDate.fromDateFields(d2);
+        //LocalDate start = LocalDate.fromDateFields(d1);
+        //LocalDate end = LocalDate.fromDateFields(d2);
 
-        start = toWorkday(start);
-        end = toWorkday(end);
+        //start = toWorkday(start);
+        //end = toWorkday(end);
 
-        int daysBetween = Days.daysBetween(start, end).getDays();
-        int weekendsBetween = Weeks.weeksBetween(start.withDayOfWeek(WEEK_START), end.withDayOfWeek(WEEK_START)).getWeeks();
+        //int daysBetween = Days.daysBetween(start, end).getDays();
+        int daysBetween = (int)(longEndDate-longStartDate);
+        //int weekendsBetween = Weeks.weeksBetween(start.withDayOfWeek(WEEK_START), end.withDayOfWeek(WEEK_START)).getWeeks();
+        Date now = new Date();
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(now);
+        int weekenddays = 0;
+        for(int i = 0;i<=daysBetween;i++) {
+            cal.add(Calendar.DAY_OF_YEAR, 1);
+            if(cal.get(Calendar.DAY_OF_WEEK)==1 || cal.get(Calendar.DAY_OF_WEEK)==7) weekenddays++;
+        }
 
         // holidays in between
         Holidays hol = new Holidays();
         long hDays = hol.holidays(realm, d1, d2);
-        return daysBetween - (weekendsBetween * DAYS_PER_WEEKEND)- (int)hDays;
+        return daysBetween - weekenddays - (int)hDays;
     }
 
     LocalDate toWorkday(LocalDate d) {

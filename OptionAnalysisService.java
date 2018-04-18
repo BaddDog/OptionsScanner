@@ -1,17 +1,22 @@
 package com.baddog.optionsscanner;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PowerManager;
 import android.os.Process;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
 
+import org.apache.commons.math3.analysis.function.Min;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 
 import java.util.ArrayList;
@@ -35,19 +40,18 @@ public class OptionAnalysisService extends Service {
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
 
-    private int LOOK_BACK = 250;
+
+    private int LOOK_BACK_FACTOR = 10;
     private double SMOOTHING_STD_DEVIATIONS = 5.0;
-    private int MIN_DAYS_TILL_EXPIRY = 4;
+    private int MIN_DAYS_TILL_EXPIRY = 3;
     private int MAX_DAYS_TILL_EXPIRY = 16;
     private double PERCENT_STRIKE_RANGE = 4.0;
-    private double COST_OF_VOLATILITY_LIMIT = .5;
-    private boolean USE_TREND_BIAS = false;
     private double TARGET_TRADE_VALUE = 2000;
     // counter to set Strategy.strategyID
     int strategyIDCounter = 1;
-
+    boolean notClosed = true;
     private Realm realm;
-
+    int functionNumber = 0;
 
     @Override
     public void onCreate() {
@@ -73,9 +77,6 @@ public class OptionAnalysisService extends Service {
     public int onStartCommand(Intent serviceIntent, int flags, int startId) {
         apiServer = serviceIntent.getStringExtra("apiserver");
         OAUTH_TOKEN = serviceIntent.getStringExtra("oauthtoken");
-        NeedHistory = serviceIntent.getBooleanExtra("NeedHistory", false);
-        NeedOptions = serviceIntent.getBooleanExtra("NeedOptions", false);
-
         //android.os.Debug.waitForDebugger();
         Toast.makeText(this, "onStartCommand", Toast.LENGTH_SHORT).show();
 
@@ -83,7 +84,7 @@ public class OptionAnalysisService extends Service {
         Message message = mServiceHandler.obtainMessage();
         message.arg1 = startId;
         mServiceHandler.sendMessage(message);
-
+        functionNumber = serviceIntent.getIntExtra("ExecuteFunction", 0);
         return Service.START_NOT_STICKY;
     }
 
@@ -102,22 +103,45 @@ public class OptionAnalysisService extends Service {
             broadcastIntent.setAction(MainActivity.MessageFromService.ACTION_RESP);
             // Initialization of realm database
             realm = Realm.getDefaultInstance(); // opens "myrealm.realm"
+            PowerManager powerManager = (PowerManager)getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OptionAnalysisService");
 
+            try {
+                wakeLock.acquire();
+                switch(functionNumber) {
+                    case 1:
+                        getSymbolIDs(realm, broadcastIntent);
+                        Thread.yield();
+                        getHistory(realm, broadcastIntent);
+                        Thread.yield();
+                        getOptions(realm, broadcastIntent);
 
-            while (true) {
-                getSymbolIDs(realm, broadcastIntent);
-                Thread.yield();
-                getHistory(realm, broadcastIntent);
-                Thread.yield();
-                getOptions(realm, broadcastIntent);
-                Thread.yield();
-                updateOptions(realm, broadcastIntent);
+                        broadcastIntent.putExtra("status", "Analysis Complete");
+                        sendBroadcast(broadcastIntent);
+                        break;
+                    case 2:
+                        updateOptions(realm, broadcastIntent, -9999999 );
+
+                        broadcastIntent.putExtra("status", "Update Complete");
+                        sendBroadcast(broadcastIntent);
+                        break;
+                    case 3:
+                        updateOptions(realm, broadcastIntent,0);
+
+                        broadcastIntent.putExtra("status", "Update Complete");
+                        sendBroadcast(broadcastIntent);
+                        break;
+                }
+                realm.close();
+            } finally {
+                wakeLock.release();
+                // Stop the service
+                stopSelf();
             }
-            //realm.close();
-            // Stop the service
-            //stopSelf();
         }
     }
+
+    // Broadcast component
 
     public void getHistory(Realm realm, Intent broadcastIntent) {
         // Initialization of realm database
@@ -128,39 +152,41 @@ public class OptionAnalysisService extends Service {
         // Update realm.symbols with LastTradePrice
         getSymbolPriceInfo(sym);
 
-        if (NeedHistory) {
+       // int newLookBack = broadcastIntent.getIntExtra("New LookBack", LOOK_BACK);
+       // if (newLookBack != LOOK_BACK) {
             // Collect History. Scan through all the symbols *****************************************************************************
-            getSymbolVolatilityInfo(sym);
-
-            Thread.yield();
-            broadcastIntent.putExtra("status", "History Complete");
-            sendBroadcast(broadcastIntent);
-        }
-        NeedHistory = false;
+            getSymbolVolatilityInfo(sym, broadcastIntent);
+      //  }
     }
 
     public void getOptions(Realm realm, Intent broadcastIntent) {
         // Scan through symbolID's and populate options data *******************************************************
         RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
         if (sym.isLoaded()) {
-            if (NeedOptions) {
-                int symbolID;
-                // Scan through all underlying symbols, obtain all the options associated with each underlying symbol.
-                // -------- Underlying Symbols
-                for (int i = 0; i < sym.size(); i++) {
-                    Symbols symbl = sym.get(i);
-                    symbolID = symbl.getSymbolID();
 
+            int symbolID;
+            // Scan through all underlying symbols, obtain all the options associated with each underlying symbol.
+            // -------- Underlying Symbols
+            for (int i = 0; i < sym.size(); i++) {
+                Symbols symbl = sym.get(i);
+                symbolID = symbl.getSymbolID();
+                // Only retrieve option info if data does'nt already exist
+                if (sym.get(i).getExpiryDates().size() == 0) {
                     Thread.yield();
                     broadcastIntent.putExtra("status", "Options of " + symbl.getSymbol());
+                    Log.d(TAG, "Options of " + symbl.getSymbol());
                     sendBroadcast(broadcastIntent);
 
                     OptionsData OptionsDataJSON = new OptionsData(apiServer, OAUTH_TOKEN, symbolID);
-                    try {
-                        OptionsDataJSON.run();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    do {
+                        try {
+                            while (OptionsDataJSON.run() != 200) {
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    } while (OptionsDataJSON==null);
+
                     // OptionsDataJSON contains all the options for a single underlying symbol (sym)
                     // Scan through the Options Expiry dates for a single underlying symbol.
                     if (OptionsDataJSON.getExpiryDateCount() > 0) {
@@ -172,50 +198,66 @@ public class OptionAnalysisService extends Service {
                     }
                 }
             }
-            NeedOptions = false;
+
         }
     }
 
-    public void updateOptions(Realm realm, Intent broadcastIntent) {
+    public void updateOptions(Realm realm, Intent broadcastIntent, int ScoreLimit) {
 
         // Scan through symbolID's and populate options data *******************************************************
         RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
         if (sym.isLoaded()) {
             // Scan through all underlying symbols, obtain all the options associated with each underlying symbol.
-           for (int i = 0; i < sym.size(); i++) {
+            for (int i = 0; i < sym.size(); i++) {
                 Symbols symbl = sym.get(i);
-                Thread.yield();
-                broadcastIntent.putExtra("status", "Update option premiums of  " + symbl.getSymbol());
-                sendBroadcast(broadcastIntent);
-                updateSingleSymbolStrategiesPriceInfo(symbl);
+                if (symbl.getBestScore() > ScoreLimit) {
+                    Thread.yield();
+                    broadcastIntent.putExtra("status", "Update option premiums of  " + symbl.getSymbol());
+                    Log.d(TAG, "Update option premiums of  " + symbl.getSymbol());
+                    sendBroadcast(broadcastIntent);
+                    updateSingleSymbolStrategiesPriceInfo(symbl);
+                }
             }
 
             for (int i = 0; i < sym.size(); i++) {
                 Symbols symbl = sym.get(i);
-                Thread.yield();
-                broadcastIntent.putExtra("status", "Update strategies of  " + symbl.getSymbol());
-                sendBroadcast(broadcastIntent);
-                RealmList<Strategy> strats = symbl.getStrategyList();
-                for (int j = 0; j < strats.size(); j++) {
-                    Strategy strat = strats.get(j);
-                    updateStrategyScores(strat);
+                if (symbl.getBestScore() > ScoreLimit) {
+                    Thread.yield();
+                    broadcastIntent.putExtra("status", "Update strategies of  " + symbl.getSymbol());
+                    Log.d(TAG, "Update strategies of  " + symbl.getSymbol());
+                    sendBroadcast(broadcastIntent);
+                    RealmList<Strategy> strats = symbl.getStrategyList();
+                    for (int j = 0; j < strats.size(); j++) {
+                        Strategy strat = strats.get(j);
+                        updateStrategyScores(strat);
+                    }
+                    double prevBestscore = symbl.getBestScore();
+                    realm.beginTransaction();
+                    symbl.setBestScore();
+                    realm.commitTransaction();
+                    double newBestscore = symbl.getBestScore();
+                    if (prevBestscore < 300 && newBestscore > 300 && prevBestscore != 0.0) {
+                        broadcastIntent.putExtra("notice", symbl.getSymbol() + " bestscore of " + String.valueOf(symbl.getBestScore()));
+                    }
                 }
-                realm.beginTransaction();
-                   symbl.setBestScore();
-                realm.commitTransaction();
             }
         }
+
     }
 
     public void getSingleSymbolPriceInfo(Symbols symbol) {
         DateCalc ds = new DateCalc();
         int symbolID = symbol.getSymbolID();
         QuoteData QuoteDataJSON = new QuoteData(apiServer, OAUTH_TOKEN, symbolID);
-        try {
-            QuoteDataJSON.run();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        do{
+            try {
+                while (QuoteDataJSON.run() != 200) {
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }while(QuoteDataJSON==null);
+
         double price = QuoteDataJSON.getLastTradePrice(0);
         realm.beginTransaction();
         symbol.setLastTradePrice(price); // realm write
@@ -236,10 +278,11 @@ public class OptionAnalysisService extends Service {
     }
 
 
-    public void getSingleSymbolVolatilityInfo(Symbols symbol, HistoryData HistoryJSON) {
+    public void getSingleSymbolVolatilityInfo(Symbols symbol, HistoryData HistoryJSON, int[] days) {
         int symbolID = symbol.getSymbolID();
-        try {
-            HistoryJSON.RetrieveSymbolData(symbolID);
+       try {
+            while (HistoryJSON.RetrieveSymbolData(symbolID) != 200) {
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -252,43 +295,62 @@ public class OptionAnalysisService extends Service {
         double MAD = dataArray[1];
         // Smooth outliera
         double[] SmoothedPrices = HistoryJSON.SmoothOutliers(candles, median, MAD, SMOOTHING_STD_DEVIATIONS);
-        // Calculate volatility at three expiry dates.
-        int days1, days2, days3;
-        Calendar calendar = Calendar.getInstance();
-        int daysTillFriday = Calendar.FRIDAY - calendar.get(Calendar.DAY_OF_WEEK);
-        if (daysTillFriday < MIN_DAYS_TILL_EXPIRY) {
-            days1 = daysTillFriday + 5;
-        } else {
-            days1 = daysTillFriday;
-        }
-        days2 = days1 + 5;
-        days3 = days2 + 5;
 
-        HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days1, SmoothedPrices.length);
-        double vol1 = HistoryJSON.IntervallicDeviation;
-        HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days2, SmoothedPrices.length);
-        double vol2 = HistoryJSON.IntervallicDeviation;
-        HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days3, SmoothedPrices.length);
-        double vol3 = HistoryJSON.IntervallicDeviation;
-        // Calculate linear regression
+
+        HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days[0], (int)(days[0]*LOOK_BACK_FACTOR));
+        double vol1 = HistoryJSON.getIntervallicDeviation();
+        double trend1 = HistoryJSON.getIntervallicTrendBias();
+        HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days[1], (int)(days[1]*LOOK_BACK_FACTOR));
+        double vol2 = HistoryJSON.getIntervallicDeviation();
+        double trend2 = HistoryJSON.getIntervallicTrendBias();
+        HistoryJSON.CalculateIntervallicDeviation(SmoothedPrices, days[2], (int)(days[2]*LOOK_BACK_FACTOR));
+        double vol3 = HistoryJSON.getIntervallicDeviation();
+        double trend3 = HistoryJSON.getIntervallicTrendBias();
+        // Calculate linear regression for volatility
         SimpleRegression regression = new SimpleRegression();
-        regression.addData(days1, vol1);
-        regression.addData(days2, vol2);
-        regression.addData(days3, vol3);
+        regression.addData(days[0], vol1);
+        regression.addData(days[1], vol2);
+        regression.addData(days[2], vol3);
+        // Calculate linear regression for trend bias
+        SimpleRegression regression2 = new SimpleRegression();
+        regression2.addData(days[0], trend1);
+        regression2.addData(days[1], trend2);
+        regression2.addData(days[2], trend3);
         realm.beginTransaction();
-        symbol.setVolatilitySlope(regression.getSlope());
-        symbol.setVolatilityIntercept(regression.getIntercept());
-        symbol.setTrendBiasSlope(regression.getSlope());
-        symbol.setTrendBiasIntercept(regression.getIntercept());
+            symbol.setVolatilitySlope(regression.getSlope());
+            symbol.setVolatilityIntercept(regression.getIntercept());
+            symbol.setTrendBiasSlope(regression2.getSlope());
+            symbol.setTrendBiasIntercept(regression2.getIntercept());
         realm.commitTransaction();
     }
 
-    public void getSymbolVolatilityInfo(RealmResults<Symbols> sym) {
+    public void getSymbolVolatilityInfo(RealmResults<Symbols> sym, Intent broadcastIntent) {
         // Collect History. Scan through all the symbols *****************************************************************************
         DateCalc ds = new DateCalc();
-        HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow() - LOOK_BACK), ds.long2StrDate(ds.LongNow()));
+
+        // Calculate volatility at three expiry dates.
+        int[] days = new int[3];
+        Calendar calendar = Calendar.getInstance();
+        int daysTillFriday = Calendar.FRIDAY - calendar.get(Calendar.DAY_OF_WEEK);
+        if (daysTillFriday < MIN_DAYS_TILL_EXPIRY) {
+            days[0] = daysTillFriday + 5;
+        } else {
+            days[0] = daysTillFriday;
+        }
+        days[1] = days[0] + 5;
+        days[2] = days[1] + 5;
+        int lookBack = (int)(LOOK_BACK_FACTOR*days[2]+1);
+        HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow() - lookBack ), ds.long2StrDate(ds.LongNow()));
+
         for (int i = 0; i < sym.size(); i++) {
-            getSingleSymbolVolatilityInfo(sym.get(i), HistoryJSON);
+            if(sym.get(i).getVolatilitySlope() == 0.0) {
+                getSingleSymbolVolatilityInfo(sym.get(i), HistoryJSON, days);
+
+                Thread.yield();
+                broadcastIntent.putExtra("status", "Volatility of " + sym.get(i).getSymbol()+" using "+ lookBack);
+                Log.d(TAG, "Volatility Info  of " + sym.get(i).getSymbol());
+                sendBroadcast(broadcastIntent);
+            }
         }
     }
 
@@ -366,7 +428,7 @@ public class OptionAnalysisService extends Service {
         long LongExpiryDate = tdc.StrDate2LongDate(ExpiryDateJSON.expiryDate);
         int tradeDays = tdc.TradeDaysTill(realm, LongExpiryDate);
 
-        if (tradeDays > 2 && tradeDays <= MAX_DAYS_TILL_EXPIRY) {
+        if (tradeDays >=MIN_DAYS_TILL_EXPIRY && tradeDays <= MAX_DAYS_TILL_EXPIRY) {
             // Create realmObject of class ExpirationDates and add to ExpiryList
             realm.beginTransaction();
             SymbolExpiryDates exp = realm.createObject(SymbolExpiryDates.class);
@@ -389,9 +451,10 @@ public class OptionAnalysisService extends Service {
                 ChainFound = getChainPerRoot(exp, ChainPerRoot);
                 k++;   // increment k index for chain per root
             }
-
-            // Create the various strategies for an symbol's expiry date
-            CreateSymbolExpiryDateStrategies(exp);
+            if (symbl.getStrategyList().size()==0) {
+                // Create the various strategies for an symbol's expiry date
+                CreateSymbolExpiryDateStrategies(exp);
+            }
         }
     }
 
@@ -415,15 +478,21 @@ public class OptionAnalysisService extends Service {
             realm.commitTransaction();
             realm.beginTransaction();
             double MedianPrice;
-            if (USE_TREND_BIAS)
-                MedianPrice = symbl.getLastTradePrice() +
-                        symbl.getTrendBias(tradeDays);
-            else MedianPrice = symbl.getLastTradePrice();
+
+
+
 
             ProfitAnalyzer PA = new ProfitAnalyzer();
+            MedianPrice = symbl.getLastTradePrice();
             double np = PA.CalcOptionNetProfitability(option.getOptionType(), option.getPremium(), option.getStrikePrice(), MedianPrice,
                     symbl.getVolatility(tradeDays), investmentDays);
             option.setNetProfitability(np);
+
+            MedianPrice = symbl.getLastTradePrice() + symbl.getTrendBias(tradeDays);
+            np = PA.CalcOptionNetProfitability(option.getOptionType(), option.getPremium(), option.getStrikePrice(), MedianPrice,
+                    symbl.getVolatility(tradeDays), investmentDays);
+            option.setNetProfitability2(np);
+
             realm.commitTransaction();
         } else Log.d(TAG, "RealmResults<Options> opt of zero size");
     }
@@ -446,7 +515,9 @@ public class OptionAnalysisService extends Service {
         OptionsInfoRequestJSON OptionsInfoRequest = new OptionsInfoRequestJSON(OptionList);
         OptionsInfo OptionsQuoteJSON = new OptionsInfo(apiServer, OAUTH_TOKEN);
         try {
-            OptionInformation = OptionsQuoteJSON.run(OptionsInfoRequest);
+            do {
+                OptionInformation = OptionsQuoteJSON.run(OptionsInfoRequest);
+            } while (OptionInformation == null);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -475,19 +546,19 @@ public class OptionAnalysisService extends Service {
         Options putOption = strat.getPutOption();
         TradeDateCalc tdc = new TradeDateCalc();
         int investmentDays = tdc.InvestmentDaysTill(realm, callOption.getExpirationDateObject().getLongExpiryDate());
-        int tradeDays = tdc.TradeDaysTill(realm, callOption.getExpirationDateObject().getLongExpiryDate());
         double CallPremium = callOption.getPremium();
         double PutPremium = putOption.getPremium();
-        int contracts = (int) (TARGET_TRADE_VALUE / (CallPremium + PutPremium) / 100);
+        int contracts = Math.max((int) (TARGET_TRADE_VALUE / (CallPremium + PutPremium) / 100),1);
         double transactionFee = 9.95;
-        double FeePerContract = 1.00;
+        double FeePerContract = 2.00;
         double TransactionFeesPerShare = (transactionFee + (FeePerContract * contracts)) * 2 / (contracts * 100);
         double AllCostsPerShare = TransactionFeesPerShare + CallPremium + PutPremium;
-        if (CallPremium > 0 && PutPremium > 0) {
-            realm.beginTransaction();
-                strat.setScore(strat.getCallOption().getnetProfitability(), strat.getPutOption().getnetProfitability(), AllCostsPerShare, investmentDays);
-            realm.commitTransaction();
-        } 
+        realm.beginTransaction();
+            if (CallPremium > 0 && PutPremium > 0 ) {
+                strat.calcScore(strat.getCallOption().getnetProfitability(), strat.getPutOption().getnetProfitability(), AllCostsPerShare, investmentDays);
+                strat.calcScore2(strat.getCallOption().getnetProfitability2(), strat.getPutOption().getnetProfitability2(), AllCostsPerShare, investmentDays);
+            } else strat.setScore(-99999);
+        realm.commitTransaction();
     }
 
     public void getSymbolIDs(Realm realm, Intent broadcastIntent) {
@@ -497,19 +568,26 @@ public class OptionAnalysisService extends Service {
             String symbol;
             for (int i = 0; i < sym.size(); i++) {
                 symbol = sym.get(i).getSymbol();
-                Thread.yield();
-                broadcastIntent.putExtra("status", "Update SymbolID of " + symbol);
-                sendBroadcast(broadcastIntent);
-                SymbolData SymbolDataJSON = new SymbolData(apiServer, OAUTH_TOKEN, symbol);
-                try {
-                    SymbolDataJSON.run();
-                } catch (Exception e) {
-                    e.printStackTrace();
+                if(sym.get(i).getSymbolID() == 0) {
+                    Thread.yield();
+                    broadcastIntent.putExtra("status", "Update SymbolID of " + symbol);
+                    Log.d(TAG, "Update SymbolID of " + symbol);
+                    sendBroadcast(broadcastIntent);
+                    SymbolData SymbolDataJSON = new SymbolData(apiServer, OAUTH_TOKEN, symbol);
+                     do{
+                        try {
+                            while (SymbolDataJSON.run() != 200) {
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    } while(SymbolDataJSON==null);
+
+                    int symID = SymbolDataJSON.getSymbolID(0);
+                    realm.beginTransaction();
+                    sym.get(i).setSymbolId(symID);     // realm write
+                    realm.commitTransaction();
                 }
-                int symID = SymbolDataJSON.getSymbolID(0);
-                realm.beginTransaction();
-                sym.get(i).setSymbolId(symID);     // realm write
-                realm.commitTransaction();
             }
         }
 

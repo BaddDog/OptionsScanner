@@ -27,7 +27,7 @@ public class Options extends RealmObject {
     private int openInterest;
 
     private double netProfitability;
-
+    private double netProfitability2;
 
     public Options() {
     }
@@ -54,13 +54,16 @@ public class Options extends RealmObject {
     public void setNetProfitability(double profitability) {
         this.netProfitability = profitability;
     }
+    public void setNetProfitability2(double profitability) {this.netProfitability2 = profitability; }
 
     public double getLastTradePrice() {return this.LastTradePrice;}
     public long getLastTradePriceDateTime() {return this.getLastTradePriceDateTime();}
     public double getAskPrice() {return this.askPrice;}
     public double getBidPrice() {return this.bidPrice;}
     public double getStrikePrice() {return this.StrikePrice;}
+    public int getOpenInterest() {return this.openInterest;}
     public double getnetProfitability() {return this.netProfitability;}
+    public double getnetProfitability2() {return this.netProfitability2;}
     public String getOptionType() {return this.OptionType;}
     public int getOptionID() {return this.OptionID;}
     public SymbolExpiryDates getExpirationDateObject() {

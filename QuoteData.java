@@ -28,7 +28,7 @@ public class QuoteData {
         this.AuthorizationKey = "Bearer "+ Key;
     }
 
-    public void run() throws Exception {
+    public int run() throws Exception {
         Request request = new Request.Builder()
                 .url(Url)
                 .get()
@@ -36,14 +36,21 @@ public class QuoteData {
                 .build();
 
         Response response = client.newCall(request).execute();
-
-        if (response.code() == 200) {
+        int responseCode = response.code();
+        if (responseCode == 200) {
             GsonBuilder gson_builder = new GsonBuilder();
             Gson gson = gson_builder.create();
             InputStream is = response.body().byteStream();
             Reader reader = new InputStreamReader(is, "UTF-8");
             qJSON = gson.fromJson(reader,QuotesJSON.class);
         }
+        int code = response.code();
+        response.close();
+        return code;
+    }
+
+    public int getQuoteRecordSize() {
+        return qJSON.quotes.size();
     }
 
     public double getLastTradePrice(int index) {

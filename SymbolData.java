@@ -29,7 +29,7 @@ public class SymbolData {
         this.AuthorizationKey = "Bearer "+ Key;
     }
 
-    public void run() throws Exception {
+    public int run() throws Exception {
         Request request = new Request.Builder()
                 .url(Url)
                 .get()
@@ -45,9 +45,15 @@ public class SymbolData {
             Reader reader = new InputStreamReader(is, "UTF-8");
             symJSON = gson.fromJson(reader,SymbolsJSON.class);
          }
+        int code = response.code();
+        response.close();
+        return code;
+    }
+    public int getSymbolsSize() {
+        return symJSON.symbols.size();
     }
 
     public int getSymbolID(int index) {
-        return symJSON.symbols[index].symbolId;
+        return symJSON.symbols.get(index).symbolId;
     }
 }

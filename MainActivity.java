@@ -1,14 +1,18 @@
 package com.baddog.optionsscanner;
 
 
+import android.app.NotificationManager;
 import android.content.Context;
 
 import android.content.IntentFilter;
 import android.content.res.ColorStateList;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Debug;
 import android.os.Process;
+import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.NotificationCompat;
 import android.util.JsonReader;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -24,6 +28,7 @@ import android.util.Log;
 import android.view.View;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -54,11 +59,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
     // IU Components
     Button resetButton;
     Button authButton;
-    Button OptionsButton;
+    Button AnalyzeOptionsButton;
+    Button updateOptionsButton;
+    Button partialUpdateButton;
     Button StrategyViewButton;
     TextView ProgressTextView;
     ProgressBar ServiceProgressBar;
-
+    EditText LookBackEditBox;
+    Button LookBackButton;
+Intent serviceIntent;
     SharedPreferences pref;
 
     MessageFromService receiver;
@@ -71,7 +80,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         setContentView(R.layout.activity_main);
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY);
        pref = getSharedPreferences("AppPref", MODE_PRIVATE);
-
+        serviceIntent = new Intent(this, OptionAnalysisService.class);
        // Flags set to false at startup
         NeedHistory = false;
         NeedOptions = false;
@@ -83,15 +92,25 @@ public class MainActivity extends Activity implements View.OnClickListener {
         authButton = (Button) findViewById(R.id.auth);
         authButton.setOnClickListener(this);
         // Listen for 'Analyze Options' button *****************************************
-        OptionsButton = (Button) findViewById(R.id.AnalyzeOptions);
-        OptionsButton.setClickable(false);
-        OptionsButton.setOnClickListener(this);
+        AnalyzeOptionsButton = (Button) findViewById(R.id.AnalyzeOptions);
+        AnalyzeOptionsButton.setClickable(false);
+        AnalyzeOptionsButton.setOnClickListener(this);
+        // Listen for 'Update Options' button *****************************************
+        updateOptionsButton = (Button) findViewById(R.id.updateOptions);
+        updateOptionsButton.setClickable(false);
+        updateOptionsButton.setOnClickListener(this);
+        // Listen for 'Partial Update Options' button *****************************************
+        partialUpdateButton = (Button) findViewById(R.id.PartialUpdate);
+        partialUpdateButton.setClickable(false);
+        partialUpdateButton.setOnClickListener(this);
         // Listen for 'View Strategies' button *****************************************
         StrategyViewButton = (Button) findViewById(R.id.StrategyViews);
         StrategyViewButton.setClickable(false);
         StrategyViewButton.setOnClickListener(this);
         ProgressTextView = (TextView) findViewById(R.id.ProgressText);
 
+
+;
     }
 
     @Override
@@ -101,6 +120,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     @Override
     protected void onResume() {
+
         super.onResume();
         receiver = new MessageFromService();
         registerReceiver(receiver, new IntentFilter(MessageFromService.ACTION_RESP));
@@ -108,13 +128,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
     @Override
     protected void onStop() {
         super.onStop();
-
         unregisterReceiver(receiver);
     }
+
     @Override
     protected void onPause() {
         super.onPause();
+        //unregisterReceiver(receiver);
     }
+
 
     @Override
     protected void onDestroy() {
@@ -159,17 +181,36 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 AuthenticateQT();
                 break;
              case R.id.AnalyzeOptions:
-                 OptionsButton.setEnabled(false);
-                 Intent serviceIntent = new Intent(this, OptionAnalysisService.class);
-
-                 //Intent serviceIntent = new Intent(this, OptionAnalysisService.class);
+                 authButton.setEnabled(false);
+                 updateOptionsButton.setEnabled(false);
+                 partialUpdateButton.setEnabled(false);
                  serviceIntent.putExtra("apiserver", apiServer);
                  serviceIntent.putExtra("oauthtoken", OAUTH_TOKEN);
-                 serviceIntent.putExtra("NeedHistory", NeedHistory);
-                 serviceIntent.putExtra("NeedOptions", NeedOptions);
 
+                 serviceIntent.putExtra("ExecuteFunction",1);
                  startService(serviceIntent);
+                 updateOptionsButton.setEnabled(true);
+                 partialUpdateButton.setEnabled(true);
+                break;
+            case R.id.updateOptions:
+                AnalyzeOptionsButton.setEnabled(false);
 
+                serviceIntent.putExtra("apiserver", apiServer);
+                serviceIntent.putExtra("oauthtoken", OAUTH_TOKEN);
+
+                serviceIntent.putExtra("ExecuteFunction",2);
+                startService(serviceIntent);
+                AnalyzeOptionsButton.setEnabled(true);
+                break;
+            case R.id.PartialUpdate:
+                AnalyzeOptionsButton.setEnabled(false);
+
+                serviceIntent.putExtra("apiserver", apiServer);
+                serviceIntent.putExtra("oauthtoken", OAUTH_TOKEN);
+
+                serviceIntent.putExtra("ExecuteFunction",3);
+                startService(serviceIntent);
+                AnalyzeOptionsButton.setEnabled(true);
                 break;
             case R.id.StrategyViews:
                 // Populate realm.strategy and calculate scores
@@ -177,6 +218,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 Intent it = new Intent(this.getApplicationContext(), ViewSymbolList.class);
                 startActivity(it);
                 break;
+            //case R.id.LookBackButton:
+            //    LOOK_BACK = Integer.parseInt(LookBackEditBox.getText().toString());
+            //    serviceIntent.putExtra("New LookBack",LOOK_BACK);
+            //    break;
             default:
                 break;
         }
@@ -191,6 +236,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
         });
     }
 
+    public void issueNoticeMessage(final String statusMessage) {
+                NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this );
+                mBuilder.setSmallIcon(R.drawable.ic_folder);
+                mBuilder.setContentTitle("Options");
+                mBuilder.setContentText(statusMessage);
+                NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                // notificationID allows you to update the notification later on.
+                mNotificationManager.notify(0, mBuilder.build());
+    }
 
 
     // Broadcast component
@@ -202,12 +256,22 @@ public class MainActivity extends Activity implements View.OnClickListener {
         public void onReceive(Context context, Intent intent) {
 
             String statusMessage = intent.getStringExtra("status");
-            try {
-                updateTheTextView(statusMessage);
-                //ProgressTextView.setText(statusMessage);
+            if (statusMessage != null) {
+                try {
+                    updateTheTextView(statusMessage);
+                    //ProgressTextView.setText(statusMessage);
 
-            } catch (Exception e) {
-              }
+                } catch (Exception e) {
+                }
+            }
+
+            String noticeMessage = intent.getStringExtra("notice");
+            if (noticeMessage != null) {
+                try {
+                    issueNoticeMessage(noticeMessage);
+                } catch (Exception e) {
+                }
+            }
         }
     }
 

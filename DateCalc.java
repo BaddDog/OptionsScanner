@@ -35,6 +35,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+
+import org.joda.time.DateTime;
 import org.joda.time.DateTimeConstants;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
@@ -46,17 +48,17 @@ public class DateCalc {
     DateCalc() {}
 
     long LongNow() {
-        LocalDateTime localDateTime = LocalDateTime.now();
-         return localDateTime.toDate().getTime()/86400000;
+        DateTime localDateTime = DateTime.now();
+         return (long) Math.ceil(localDateTime.toDate().getTime()/86400000);
     }
 
     Date DateNow() {
-        LocalDateTime localDateTime = LocalDateTime.now();
+        DateTime localDateTime = DateTime.now();
         return localDateTime.toDate();
     }
 
     long date2long(Date ldt) {
-        return ldt.getTime()/86400000;
+        return (long)Math.ceil(ldt.getTime()/86400000);
     }
 
     long StrDate2LongDate (String sldt) {
@@ -67,7 +69,7 @@ public class DateCalc {
         } catch (ParseException e) {
             e.printStackTrace();
         }
-        return dt.getTime()/86400000;
+        return (long)Math.ceil(dt.getTime()/86400000);
     }
 
     long StrDate2LongDateTime (String sldt) {
@@ -94,12 +96,12 @@ public class DateCalc {
 
     String long2StrDate (long DateLong) {
         SimpleDateFormat dateformat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZZZ");
-        Date ldt = new Date(DateLong*86400000);
+        Date ldt = new Date((long)Math.ceil(DateLong*86400000));
         return dateformat.format(ldt);
     }
 
     Date long2Date (long DateLong) {
-        Date ldt = new Date(DateLong*86400000);
+        Date ldt = new Date((long)Math.ceil(DateLong*86400000));
         return ldt;
     }
 

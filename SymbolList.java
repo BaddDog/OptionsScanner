@@ -30,13 +30,14 @@ public class SymbolList extends RealmObject {
     }
 
     public void PopulateSymbols(Realm realm) {
+        AddSymbol(realm, "VRX");
         AddSymbol(realm, "AAPL");
         AddSymbol(realm, "EEM");
         AddSymbol(realm, "IWM");
-
+/*
         AddSymbol(realm, "UVXY");
         AddSymbol(realm, "USO");
-/*
+
               AddSymbol(realm, "GLD");
                        AddSymbol(realm, "XLE");
                                 AddSymbol(realm, "XOP");
@@ -56,7 +57,7 @@ public class SymbolList extends RealmObject {
                                                                         AddSymbol(realm, "NFLX");
                                                                                 AddSymbol(realm, "PFE");
                                                                                         AddSymbol(realm, "XOM");
-                                                                                                AddSymbol(realm, "VRX");
+
                                                                                                         AddSymbol(realm, "GILD");
                                                                                                                 AddSymbol(realm, "RIG");
                                                                                                                         AddSymbol(realm, "AMZN");

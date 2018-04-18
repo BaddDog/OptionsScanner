@@ -93,11 +93,11 @@ public class Symbols extends RealmObject {
     }
 
     public void setTrendBiasSlope(double slope) {
-        this.volatility_slope = slope;
+        this.trendbias_slope = slope;
     }
 
     public void setTrendBiasIntercept(double intercept) {
-        this.volatility_intercept = intercept;
+        this.trendbias_intercept = intercept;
     }
 
     public void setBestScore() {
@@ -137,6 +137,9 @@ public class Symbols extends RealmObject {
         return this.StrategyList;
     }
 
+    public double getVolatilitySlope() {
+        return this.volatility_slope;
+    }
 
 
 
@@ -155,7 +158,7 @@ public class Symbols extends RealmObject {
         return (volatility_slope*WorkDaysTillExpiry)+volatility_intercept;
     }
     public double getTrendBias(long dayTillExpiry) {
-        return (trendbias_slope*dayTillExpiry)+trendbias_intercept;
+        return (this.trendbias_slope*dayTillExpiry)+this.trendbias_intercept;
     }
 
 

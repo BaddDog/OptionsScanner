@@ -8,5 +8,6 @@ import java.util.List;
  */
 
 public class SymbolsJSON {
-    SymbolJSON[] symbols;
+    //SymbolJSON[] symbols;
+    List<SymbolJSON> symbols;
 }

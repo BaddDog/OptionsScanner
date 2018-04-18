@@ -34,7 +34,7 @@ public class HistoryData {
     private Gson gson = new Gson();
     public CandlesJSON Candles;
 
-    public double IntervallicDeviation;
+    private double IntervallicDeviation;
     private double IntervallicTrendBias;
     private double Skew;
     private double Kurtosis;
@@ -48,7 +48,7 @@ public class HistoryData {
         this.AuthorizationKey = "Bearer " + key;
     }
 
-    public void RetrieveSymbolData(int symbolID) throws Exception {
+    public int RetrieveSymbolData(int symbolID) throws Exception {
         String Url = this.APIHost + "v1/markets/candles/" + symbolID + "?startTime=" + this.StartDate + "&endTime=" + this.LastDate + "&interval=OneDay";
         Request request = new Request.Builder()
                 .url(Url)
@@ -58,10 +58,6 @@ public class HistoryData {
 
         Response response = client.newCall(request).execute();
 
-        DateCalc ds = new DateCalc();
-        Date currentDate = new Date(System.currentTimeMillis());
-        long intDate = ds.date2long(currentDate);
-
 
         if (response.code() == 200) {
             GsonBuilder gson_builder = new GsonBuilder();
@@ -69,7 +65,11 @@ public class HistoryData {
             InputStream is = response.body().byteStream();
             Reader reader = new InputStreamReader(is, "UTF-8");
             Candles = gson.fromJson(reader, CandlesJSON.class);
+
         }
+        int code = response.code();
+        response.close();
+        return code;
     }
 
     public double[] JSON2Array (CandlesJSON Candles) {
@@ -77,7 +77,6 @@ public class HistoryData {
         double Prices[] = new double[candleList.size()];
         for (int i = 0; i<candleList.size(); i++) {
             // Retrieve data from JSON
-            long priceDate = new DateCalc().StrDate2LongDate(candleList.get(i).start);
             double price = candleList.get(i).close;
             // Save in Array
             Prices[i]= price;

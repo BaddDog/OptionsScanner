@@ -55,16 +55,18 @@ class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStr
         final Strategy obj = getItem(position);
         holder.data = obj;
 
-        //noinspection ConstantConditions
-
-        holder.title.setText(Long.toString(obj.getDaysTillExpiration(realm)));
-        holder.title2.setText(Integer.toString((int)obj.getScore()));
+        holder.title2.setText(Long.toString(obj.getDaysTillExpiration(realm)));
+        holder.title.setText(Integer.toString((int)obj.getScore()));
         holder.title3.setText(Double.toString(obj.getCallPremium()));
         holder.title4.setText(Double.toString(obj.getPutPremium()));
         holder.title5.setText(Double.toString(obj.getCallStrikeprice()));
         holder.title6.setText(Double.toString(obj.getPutStrikeprice()));
-        double Volatility = obj.getCallOption().getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(obj.getDaysTillExpiration(realm));
-        holder.title7.setText(String.format("%.2f", Volatility ));
+        //double Volatility = obj.getCallOption().getExpirationDateObject().getUnderlyingSymbolObject().getVolatility(obj.getDaysTillExpiration(realm));
+        holder.title7.setText(Integer.toString((int)obj.getScore2()));
+        holder.title8.setText(obj.getCallOption().getExpirationDateObject().getUnderlyingSymbolObject().getSymbol());
+        holder.title9.setText(String.format("%d", obj.getCallOption().getOpenInterest() ));
+        holder.title10.setText(String.format("%d", obj.getPutOption().getOpenInterest() ));
+        holder.title11.setText(Double.toString(obj.getCallOption().getExpirationDateObject().getUnderlyingSymbolObject().getLastTradePrice()));
     }
 
     @Override
@@ -75,7 +77,7 @@ class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStr
 
 
     class MyViewHolder extends RecyclerView.ViewHolder {
-        TextView title, title2, title3, title4, title5, title6, title7;
+        TextView title, title2, title3, title4, title5, title6, title7, title8, title9, title10, title11;
         CheckBox deletedCheckBox;
         public Strategy data;
 
@@ -87,7 +89,11 @@ class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStr
             title4 = (TextView) view.findViewById(R.id.putpremium);
             title5 = (TextView) view.findViewById(R.id.callstrikeprice);
             title6 = (TextView) view.findViewById(R.id.putstrikeprice);
-            title7 = (TextView) view.findViewById(R.id.volatility);
+            title7 = (TextView) view.findViewById(R.id.score2);
+            title8 = (TextView) view.findViewById(R.id.symbol);
+            title9 = (TextView) view.findViewById(R.id.CallOpenInterest);
+            title10 = (TextView) view.findViewById(R.id.PutOpenInterest);
+            title11 = (TextView) view.findViewById(R.id.underlyingPrice);
         }
     }
 

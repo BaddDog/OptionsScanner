@@ -57,6 +57,7 @@ public class OptionsInfo {
         } else {
             OptionInfoJSONReturned = null;
         }
+        response.close();
     return OptionInfoJSONReturned;
     }
 
