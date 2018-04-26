@@ -46,7 +46,8 @@ public class OptionAnalysisService extends Service {
     private int MIN_DAYS_TILL_EXPIRY = 3;
     private int MAX_DAYS_TILL_EXPIRY = 16;
     private double PERCENT_STRIKE_RANGE = 4.0;
-    private double TARGET_TRADE_VALUE = 2000;
+   // private double STRIKE_RANGE_DEVIATIONS = 1.0;
+    private double TARGET_TRADE_VALUE;
     // counter to set Strategy.strategyID
     int strategyIDCounter = 1;
     boolean notClosed = true;
@@ -108,6 +109,7 @@ public class OptionAnalysisService extends Service {
 
             try {
                 wakeLock.acquire();
+                RealmResults<Symbols> sym;
                 switch(functionNumber) {
                     case 1:
                         getSymbolIDs(realm, broadcastIntent);
@@ -120,12 +122,18 @@ public class OptionAnalysisService extends Service {
                         sendBroadcast(broadcastIntent);
                         break;
                     case 2:
+                        sym = realm.where(Symbols.class).findAll();
+                        getSymbolPriceInfo(sym, broadcastIntent);
+                        Thread.yield();
                         updateOptions(realm, broadcastIntent, -9999999 );
 
                         broadcastIntent.putExtra("status", "Update Complete");
                         sendBroadcast(broadcastIntent);
                         break;
                     case 3:
+                        sym = realm.where(Symbols.class).greaterThan("BestScore", 0).findAll();
+                        getSymbolPriceInfo(sym, broadcastIntent);
+                        Thread.yield();
                         updateOptions(realm, broadcastIntent,0);
 
                         broadcastIntent.putExtra("status", "Update Complete");
@@ -150,7 +158,7 @@ public class OptionAnalysisService extends Service {
         RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
 
         // Update realm.symbols with LastTradePrice
-        getSymbolPriceInfo(sym);
+        getSymbolPriceInfo(sym, broadcastIntent);
 
        // int newLookBack = broadcastIntent.getIntExtra("New LookBack", LOOK_BACK);
        // if (newLookBack != LOOK_BACK) {
@@ -269,10 +277,14 @@ public class OptionAnalysisService extends Service {
         realm.commitTransaction();
     }
 
-    public void getSymbolPriceInfo(RealmResults<Symbols> sym) {
+    public void getSymbolPriceInfo(RealmResults<Symbols> sym, Intent broadcastIntent) {
         if (sym.isLoaded()) {
             for (int i = 0; i < sym.size(); i++) {
                 getSingleSymbolPriceInfo(sym.get(i));
+                Thread.yield();
+                broadcastIntent.putExtra("status", "Price of " + sym.get(i).getSymbol());
+                Log.d(TAG, "Price of " + sym.get(i).getSymbol());
+                sendBroadcast(broadcastIntent);
             }
         }
     }
@@ -358,6 +370,9 @@ public class OptionAnalysisService extends Service {
         boolean ChainFound = false;
         double maxStrike = exp.getUnderlyingSymbolObject().getLastTradePrice() * (PERCENT_STRIKE_RANGE / 100 + 1);
         double minStrike = exp.getUnderlyingSymbolObject().getLastTradePrice() / (PERCENT_STRIKE_RANGE / 100 + 1);
+        //Symbols sym = exp.getUnderlyingSymbolObject();
+        //double maxStrike = sym.getLastTradePrice() + (STRIKE_RANGE_DEVIATIONS*sym.getVolatility(exp.getDaysTillExpiry(realm, exp.getLongExpiryDate())));
+        //double minStrike = sym.getLastTradePrice() - (STRIKE_RANGE_DEVIATIONS*sym.getVolatility(exp.getDaysTillExpiry(realm, exp.getLongExpiryDate())));
         if (ChainPerRoot.multiplier == 100) {
             ChainFound = true;
             // Scan through strike prices -------------------------------------------------------------------------------------
@@ -411,7 +426,7 @@ public class OptionAnalysisService extends Service {
                 // Create a strategy realm object using call option and put option
                 realm.beginTransaction();
                     Strategy strat = realm.createObject(Strategy.class);
-                    strat.setID(strategyIDCounter);
+                    strat.setStrategyID(strategyIDCounter);
                     strategyIDCounter++;
                 realm.commitTransaction();
                 realm.beginTransaction();
@@ -478,9 +493,6 @@ public class OptionAnalysisService extends Service {
             realm.commitTransaction();
             realm.beginTransaction();
             double MedianPrice;
-
-
-
 
             ProfitAnalyzer PA = new ProfitAnalyzer();
             MedianPrice = symbl.getLastTradePrice();
@@ -592,6 +604,8 @@ public class OptionAnalysisService extends Service {
         }
 
     }
+
+
 
 }
 

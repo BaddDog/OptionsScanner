@@ -30,7 +30,8 @@ public class ViewSymbolList extends Activity {
     private RecyclerView recyclerView;
     private Menu menu;
     private ViewSymbolListAdapter adapter;
-
+    private String apiServer;
+    private String OAUTH_TOKEN;
 
     private class TouchHelperCallback extends ItemTouchHelper.SimpleCallback {
 
@@ -67,7 +68,12 @@ public class ViewSymbolList extends Activity {
         recyclerView.setAdapter(adapter);
         recyclerView.setHasFixedSize(true);
         recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
-
+        Intent intent = getIntent();
+        int SymIndex = intent.getIntExtra("SYMBOL_INDEX", 0);
+        int SymID = intent.getIntExtra("SYMBOL_ID", 0);
+        apiServer = intent.getStringExtra("apiserver");
+        OAUTH_TOKEN = intent.getStringExtra("oauthtoken");
+        final int TARGET_TRADE_VALUE = intent.getIntExtra("TargetTradeValue", 0);
 
         View.OnClickListener listener = new View.OnClickListener() {
             @Override
@@ -78,6 +84,9 @@ public class ViewSymbolList extends Activity {
                 Intent it = new Intent(ViewSymbolList.this, ViewStrategyList.class);
                 it.putExtra("SYMBOL_INDEX", selectedPosition);
                 it.putExtra("SYMBOL_ID", result.get(selectedPosition).getSymbolID());
+                it.putExtra("apiserver", apiServer);
+                it.putExtra("oauthtoken", OAUTH_TOKEN);
+                it.putExtra("TargetTradeValue", TARGET_TRADE_VALUE);
                 startActivity(it);
             }
         };

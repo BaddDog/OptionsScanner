@@ -61,7 +61,7 @@ public class Strategy extends RealmObject {
     }
 
     // Setters
-    public void setID(int id) {
+    public void setStrategyID(int id) {
         this.strategyID = id;
     }
     public void setCallOption(Options option) {
@@ -95,6 +95,7 @@ public class Strategy extends RealmObject {
     public double getScore2() {return this.Score2;}
     public Options getCallOption() {return this.callOption;}
     public Options getPutOption() {return this.putOption;}
+   //public int getid() {return this.hashCode();}
     public int getid() {return this.hashCode();}
-
+    public int getStrategyid() {return this.strategyID;}
 }

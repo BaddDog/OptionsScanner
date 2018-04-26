@@ -10,9 +10,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Debug;
 import android.os.Process;
+import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.app.NotificationCompat;
 import android.util.JsonReader;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -41,12 +41,13 @@ import android.content.BroadcastReceiver;
 
 public class MainActivity extends Activity implements View.OnClickListener {
 
-    private static String CLIENT_ID = "ATBtay4nP5Gt3IJ9TeMPmaWBAIlIbg";
+    private static String CLIENT_ID = "0QJ_KrWXAK12rUk1_tM-ztzgJ2pMxA";
     private static String CLIENT_SECRET = null;
     private static String REDIRECT_URI = "https://localhost321.com";
     private static String GRANT_TYPE = "authorization_code";
     private static String TOKEN_URL = "https://login.questrade.com/oauth2/token";
     private static String OAUTH_URL = "https://login.questrade.com/oauth2/authorize";
+    private static int TARGET_TRADE_VALUE = 2000;
 
     private boolean NeedHistory;
     private boolean NeedOptions;
@@ -77,6 +78,7 @@ Intent serviceIntent;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY);
        pref = getSharedPreferences("AppPref", MODE_PRIVATE);
@@ -128,13 +130,13 @@ Intent serviceIntent;
     @Override
     protected void onStop() {
         super.onStop();
-        unregisterReceiver(receiver);
+        //unregisterReceiver(receiver);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        //unregisterReceiver(receiver);
+        unregisterReceiver(receiver);
     }
 
 
@@ -216,6 +218,9 @@ Intent serviceIntent;
                 // Populate realm.strategy and calculate scores
 
                 Intent it = new Intent(this.getApplicationContext(), ViewSymbolList.class);
+                it.putExtra("apiserver", apiServer);
+                it.putExtra("oauthtoken", OAUTH_TOKEN);
+                it.putExtra("TargetTradeValue", TARGET_TRADE_VALUE);
                 startActivity(it);
                 break;
             //case R.id.LookBackButton:

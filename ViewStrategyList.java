@@ -31,7 +31,9 @@ public class ViewStrategyList extends Activity {
     private RecyclerView recyclerView;
     private Menu menu;
     private ViewStrategyListAdapter adapter;
-
+    private String apiServer;
+    private String OAUTH_TOKEN;
+    int symbolID;
 
     private class TouchHelperCallback extends ItemTouchHelper.SimpleCallback {
 
@@ -63,11 +65,14 @@ public class ViewStrategyList extends Activity {
         recyclerView = (RecyclerView) findViewById(R.id.strategy_recycler_view);
         Intent intent = getIntent();
         int SymIndex = intent.getIntExtra("SYMBOL_INDEX", 0);
-        int SymID = intent.getIntExtra("SYMBOL_ID", 0);
+        symbolID = intent.getIntExtra("SYMBOL_ID", 0);
+        apiServer = intent.getStringExtra("apiserver");
+        OAUTH_TOKEN = intent.getStringExtra("oauthtoken");
+        final int TARGET_TRADE_VALUE = intent.getIntExtra("TargetTradeValue", 0);
 
         //Symbols sym = realm.where(Symbols.class).equalTo("symbolID",SymID).findFirst();
         //RealmResults sl = sym.getStrategyList().sort("Score",Sort.DESCENDING);
-        RealmResults <Strategy> sl = realm.where(Strategy.class).equalTo("underlyingSymbol.symbolID",SymID ).greaterThan("Score", 0.0).sort("Score",Sort.DESCENDING).findAll();
+        final RealmResults <Strategy> sl = realm.where(Strategy.class).equalTo("underlyingSymbol.symbolID",symbolID ).greaterThan("Score", 0.0).sort("Score",Sort.DESCENDING).findAll();
 
         adapter = new ViewStrategyListAdapter(realm, sl);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -83,8 +88,14 @@ public class ViewStrategyList extends Activity {
                 ViewStrategyListAdapter.MyViewHolder holder= (ViewStrategyListAdapter.MyViewHolder) recyclerView.findViewHolderForLayoutPosition(selectedPosition);
                 Strategy strat = holder.data;
                 // symbol is selected, so start new activity
-                Intent it = new Intent(ViewStrategyList.super.getBaseContext(), ViewStrategyList.class);
-                //startActivity(it);
+                Intent it = new Intent(ViewStrategyList.super.getBaseContext(), SymbolStrategyProfitPlot.class);
+
+                it.putExtra("StrategyID", sl.get(selectedPosition).getStrategyid());
+                it.putExtra("SYMBOL_ID", symbolID);
+                it.putExtra("apiserver", apiServer);
+                it.putExtra("oauthtoken", OAUTH_TOKEN);
+                it.putExtra("TargetTradeValue", TARGET_TRADE_VALUE);
+                startActivity(it);
             }
         };
 

@@ -25,7 +25,7 @@ import static java.lang.Math.sqrt;
  */
 
 public class HistoryData {
-    private OkHttpClient client = new OkHttpClient();
+    private OkHttpClient client;
     private String APIHost = null;
     private String StartDate = null;
     private String LastDate = null;
@@ -46,6 +46,7 @@ public class HistoryData {
         this.StartDate = date1;
         this.LastDate = date2;
         this.AuthorizationKey = "Bearer " + key;
+        this.client = new OkHttpClient();
     }
 
     public int RetrieveSymbolData(int symbolID) throws Exception {
