@@ -21,7 +21,7 @@ import io.realm.RealmResults;
 class ViewSymbolListAdapter extends RealmRecyclerViewAdapter<Symbols, ViewSymbolListAdapter.MyViewHolder> {
 
     protected View.OnClickListener mClickListener;
-    private Realm realm;
+
 
     ViewSymbolListAdapter(RealmList<Symbols> data) {
         super((OrderedRealmCollection<Symbols>) data, true);
@@ -32,14 +32,14 @@ class ViewSymbolListAdapter extends RealmRecyclerViewAdapter<Symbols, ViewSymbol
         setHasStableIds(false);
     }
 
-    ViewSymbolListAdapter(Realm realm, RealmResults<Symbols> data) {
+    ViewSymbolListAdapter(RealmResults<Symbols> data) {
         super((OrderedRealmCollection<Symbols>) data, true);
         // Only set this if the model class has a primary key that is also a integer or long.
         // In that case, {@code getItemId(int)} must also be overridden to return the key.
         // See https://developer.android.com/reference/android/support/v7/widget/RecyclerView.Adapter.html#hasStableIds()
         // See https://developer.android.com/reference/android/support/v7/widget/RecyclerView.Adapter.html#getItemId(int)
         setHasStableIds(false);
-        this.realm = realm;
+
     }
     @Override
     public MyViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {

@@ -63,7 +63,7 @@ public class ViewSymbolList extends Activity {
         recyclerView = (RecyclerView) findViewById(R.id.symbol_recycler_view);
         final RealmList<Symbols> sl = realm.where(SymbolList.class).findFirst().getSymbolsList();
         final RealmResults<Symbols> result = sl.sort("BestScore", Sort.DESCENDING);
-        adapter = new ViewSymbolListAdapter(realm, result);
+        adapter = new ViewSymbolListAdapter(result);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
         recyclerView.setHasFixedSize(true);

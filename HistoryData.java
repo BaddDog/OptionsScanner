@@ -25,13 +25,11 @@ import static java.lang.Math.sqrt;
  */
 
 public class HistoryData {
-    private OkHttpClient client;
-    private String APIHost = null;
-    private String StartDate = null;
-    private String LastDate = null;
-    private String AuthorizationKey = null;
-
-    private Gson gson = new Gson();
+    private final OkHttpClient client;
+    private final String APIHost;
+    private final String StartDate;
+    private final String LastDate;
+    private final String AuthorizationKey;
     public CandlesJSON Candles;
 
     private double IntervallicDeviation;
@@ -66,7 +64,8 @@ public class HistoryData {
             InputStream is = response.body().byteStream();
             Reader reader = new InputStreamReader(is, "UTF-8");
             Candles = gson.fromJson(reader, CandlesJSON.class);
-
+            is.close();
+            reader.close();
         }
         int code = response.code();
         response.close();

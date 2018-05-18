@@ -1,14 +1,24 @@
 package com.baddog.optionsscanner;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
+
 import org.apache.http.client.ClientProtocolException;
 import android.util.JsonReader;
 import javax.net.ssl.HttpsURLConnection;
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+
+import static org.apache.http.protocol.HTTP.USER_AGENT;
 
 
 /**
@@ -20,39 +30,42 @@ public class GetAccessToken {
 
     public GetAccessToken() {
     }
-
     public JsonReader gettoken(String address,String token,String client_id,String client_secret,String redirect_uri,String grant_type) {
         JsonReader jsonReader = null;
         // Making HTTP request
         try {
-
             // Create URL
-            URL githubEndpoint = new URL(address+"?client_id="+client_id+"&code="+token+"&grant_type="+grant_type+"&redirect_uri="+redirect_uri);
+            URL url = new URL(address+"?client_id="+client_id+"&code="+token+"&grant_type="+grant_type+"&redirect_uri="+redirect_uri);
             // Create connection
-            HttpsURLConnection conn = (HttpsURLConnection) githubEndpoint.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            conn.setUseCaches (false);
+            HttpURLConnection conn= (HttpURLConnection) url.openConnection();
             conn.setDoInput(true);
-            conn.setDoOutput(true);
+            conn.setDoOutput( true );
+            conn.setInstanceFollowRedirects( false );
+            conn.setRequestMethod( "POST" );
+            conn.setRequestProperty( "Content-Type", "application/x-www-form-urlencoded");
+            conn.setRequestProperty( "charset", "utf-8");
+
+
+
             if (conn.getResponseCode() == 200) {
                 // Success
                 // Further processing here
                 InputStream responseBody = conn.getInputStream();
-                InputStreamReader responseBodyReader =
-                        new InputStreamReader(responseBody, "UTF-8");
+                InputStreamReader responseBodyReader = new InputStreamReader(responseBody, "UTF-8");
+                //BufferedReader responseBodyReader  = new BufferedReader(new InputStreamReader(responseBody));
                 jsonReader = new JsonReader(responseBodyReader);
             }
-
-        } catch (UnsupportedEncodingException e) {
+            conn.disconnect();
+       } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         } catch (ClientProtocolException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-    return jsonReader;
+        return jsonReader;
     }
+
 }
 
 

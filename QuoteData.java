@@ -17,11 +17,11 @@ import okhttp3.Response;
  */
 
 public class QuoteData {
-    private final OkHttpClient client = new OkHttpClient();
     private final String Url;
     private final String AuthorizationKey;
     private final Gson gson = new Gson();
-    private QuotesJSON qJSON;
+    private String LastTradeDateTime;
+    private double LastTradePrice;
 
     public QuoteData(String apiHost, String Key, int symbolID) {
         this.Url = apiHost+"v1/markets/quotes/" + symbolID ;
@@ -29,41 +29,43 @@ public class QuoteData {
     }
 
     public int run() throws Exception {
-        Request request = new Request.Builder()
+        int code=0;
+        try(Response response = new OkHttpClient().newCall(new Request.Builder()
                 .url(Url)
                 .get()
                 .header("Authorization", AuthorizationKey)
-                .build();
-
-        Response response = client.newCall(request).execute();
-        int responseCode = response.code();
-        if (responseCode == 200) {
-            GsonBuilder gson_builder = new GsonBuilder();
-            Gson gson = gson_builder.create();
-            InputStream is = response.body().byteStream();
-            Reader reader = new InputStreamReader(is, "UTF-8");
-            qJSON = gson.fromJson(reader,QuotesJSON.class);
+                .build()).execute()) {
+            if (response.code() == 200) {
+                try (Reader reader = new InputStreamReader(response.body().byteStream(), "UTF-8")) {
+                    GsonBuilder gson_builder = new GsonBuilder();
+                    Gson gson = gson_builder.create();
+                    QuotesJSON qJSON = gson.fromJson(reader, QuotesJSON.class);
+                    LastTradePrice = qJSON.quotes.get(0).lastTradePrice;
+                    LastTradeDateTime = qJSON.quotes.get(0).lastTradeTime;
+                    code = response.code();
+                }
+            }
         }
-        int code = response.code();
-        response.close();
         return code;
     }
 
-    public int getQuoteRecordSize() {
-        return qJSON.quotes.size();
+    //public int getQuoteRecordSize() {
+    //    return qJSON.quotes.size();
+    //}
+
+   public double getLastTradePrice(int index) {
+        return this.LastTradePrice;
     }
 
-    public double getLastTradePrice(int index) {
-        return qJSON.quotes.get(index).lastTradePrice;
+   public String getLastTradeDateTime (int index) {
+        return this.LastTradeDateTime;
     }
 
-    public String getLastTradeDateTime (int index) { return qJSON.quotes.get(index).lastTradeTime;}
-
-    public double getAskPrice(int index) {
-        return qJSON.quotes.get(index).askPrice;
-    }
-    public double getBidPrice(int index) {
-        return qJSON.quotes.get(index).bidPrice;
-    }
+    //public double getAskPrice(int index) {
+    //    return qJSON.quotes.get(index).askPrice;
+    //}
+    //public double getBidPrice(int index) {
+    //    return qJSON.quotes.get(index).bidPrice;
+    //}
 
 }

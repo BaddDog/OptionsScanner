@@ -57,7 +57,7 @@ public class SymbolStrategyProfitPlot extends Activity {
             TradeDateCalc tdc = new TradeDateCalc();
 
             // Retrieve candle information for symbol
-            HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, tdc.long2StrDate(tdc.LongNow() - totaldaysback), tdc.long2StrDate(tdc.LongNow()));
+            final HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, tdc.long2StrDate(tdc.LongNow() - totaldaysback), tdc.long2StrDate(tdc.LongNow()));
             try {
                 while (HistoryJSON.RetrieveSymbolData(SymID) != 200) {
                 }
@@ -161,5 +161,6 @@ public class SymbolStrategyProfitPlot extends Activity {
                 }
             });
         }
+        realm.close();
     }
 }

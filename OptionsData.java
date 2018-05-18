@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.List;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -19,8 +20,8 @@ public class OptionsData {
     private final OkHttpClient client = new OkHttpClient();
     private final String Url;
     private final String AuthorizationKey;
-    private final Gson gson = new Gson();
-    private OptionsJSON optJSON;
+    private int ExpiryDateCount;
+    List<OptionsJSON.OptionExpiryDateJSON> ExpiryDateJSON;
 
     public OptionsData(String apiHost, String Key, int symbolID) {
         this.Url = apiHost+"v1/symbols/"+ symbolID + "/options";
@@ -28,46 +29,33 @@ public class OptionsData {
     }
 
     public int run() throws Exception {
-        Request request = new Request.Builder()
+        int code=0;
+        try(Response response = new OkHttpClient().newCall(new Request.Builder()
                 .url(Url)
                 .get()
                 .header("Authorization", AuthorizationKey)
-                .build();
+                .build()).execute())
+        {
+            if (response.code() == 200) {
+                try(Reader reader = new InputStreamReader(response.body().byteStream(), "UTF-8")) {
+                    GsonBuilder gson_builder = new GsonBuilder();
+                    Gson gson = gson_builder.create();
+                    OptionsJSON optJSON = gson.fromJson(reader, OptionsJSON.class);
+                    ExpiryDateCount = optJSON.getOptionExpiryDateJSONSize();
+                    ExpiryDateJSON = optJSON.optionChain;
+                    code = response.code();
+                }
+            }
 
-        Response response = client.newCall(request).execute();
-
-        if (response.code() == 200) {
-            GsonBuilder gson_builder = new GsonBuilder();
-            gson_builder.setLenient();
-            Gson gson2 = gson_builder.create();
-
-            InputStream is = response.body().byteStream();
-            Reader reader = new InputStreamReader(is, "UTF-8");
-            optJSON = gson2.fromJson(reader ,OptionsJSON.class);
         }
-        int code = response.code();
-        response.close();
         return code;
     }
 
 
 
     public  int getExpiryDateCount() {
-        if(optJSON!=null) {
-            return this.optJSON.getOptionExpiryDateJSONSize();
-        } else {
-            return 0;
-        }
+             return this.ExpiryDateCount;
     }
-
-    public OptionsJSON.OptionExpiryDateJSON getExpiryDate(int index) {
-        if (optJSON != null) {
-            return this.optJSON.getOptionExpiryDateJSON(index);
-        } else {
-            return null;
-        }
-    }
-
 
 
 

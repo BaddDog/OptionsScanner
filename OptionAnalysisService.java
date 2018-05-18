@@ -1,10 +1,8 @@
 package com.baddog.optionsscanner;
 
 import android.app.Service;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -16,7 +14,6 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
 
-import org.apache.commons.math3.analysis.function.Min;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 
 import java.util.ArrayList;
@@ -56,6 +53,7 @@ public class OptionAnalysisService extends Service {
 
     @Override
     public void onCreate() {
+
         // To avoid cpu-blocking, we create a background handler to run our service
         HandlerThread thread = new HandlerThread("TutorialService",
                 Process.THREAD_PRIORITY_BACKGROUND);
@@ -66,7 +64,6 @@ public class OptionAnalysisService extends Service {
         // start the service using the background handler
         mServiceHandler = new ServiceHandler(mServiceLooper);
     }
-
 
     @Nullable
     @Override
@@ -200,7 +197,7 @@ public class OptionAnalysisService extends Service {
                     if (OptionsDataJSON.getExpiryDateCount() > 0) {
                         for (int j = 0; j < OptionsDataJSON.getExpiryDateCount(); j++) {
                             // Get Expiry dates
-                            OptionsJSON.OptionExpiryDateJSON ExpiryDateJSON = OptionsDataJSON.getExpiryDate(j);
+                            OptionsJSON.OptionExpiryDateJSON ExpiryDateJSON = OptionsDataJSON.ExpiryDateJSON.get(j);
                             getSymbolExpiryDateData(symbl, ExpiryDateJSON);
                         }
                     }
@@ -262,19 +259,21 @@ public class OptionAnalysisService extends Service {
                 while (QuoteDataJSON.run() != 200) {
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                symbol.DeleteSymbol(realm);
+                break;
             }
         }while(QuoteDataJSON==null);
 
         double price = QuoteDataJSON.getLastTradePrice(0);
         realm.beginTransaction();
-        symbol.setLastTradePrice(price); // realm write
-        String dt = QuoteDataJSON.getLastTradeDateTime(0);
-        // Set datetime of last trade price
-        if (dt != null) {
-            symbol.setLastTradePriceDateTime(ds.StrDate2LongDateTime(dt));
-        }  // realm write
+            symbol.setLastTradePrice(price); // realm write
+            String dt = QuoteDataJSON.getLastTradeDateTime(0);
+            // Set datetime of last trade price
+            if (dt != null) {
+                symbol.setLastTradePriceDateTime(ds.StrDate2LongDateTime(dt));
+            }  // realm write
         realm.commitTransaction();
+
     }
 
     public void getSymbolPriceInfo(RealmResults<Symbols> sym, Intent broadcastIntent) {
@@ -352,7 +351,7 @@ public class OptionAnalysisService extends Service {
         days[1] = days[0] + 5;
         days[2] = days[1] + 5;
         int lookBack = (int)(LOOK_BACK_FACTOR*days[2]+1);
-        HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow() - lookBack ), ds.long2StrDate(ds.LongNow()));
+        final HistoryData HistoryJSON = new HistoryData(apiServer, OAUTH_TOKEN, ds.long2StrDate(ds.LongNow() - lookBack ), ds.long2StrDate(ds.LongNow()));
 
         for (int i = 0; i < sym.size(); i++) {
             if(sym.get(i).getVolatilitySlope() == 0.0) {
@@ -575,7 +574,7 @@ public class OptionAnalysisService extends Service {
 
     public void getSymbolIDs(Realm realm, Intent broadcastIntent) {
         // Update realm.symbols with symbolID's
-        RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
+        final RealmResults<Symbols> sym = realm.where(Symbols.class).findAll();
         if (sym.isLoaded()) {
             String symbol;
             for (int i = 0; i < sym.size(); i++) {
@@ -585,19 +584,20 @@ public class OptionAnalysisService extends Service {
                     broadcastIntent.putExtra("status", "Update SymbolID of " + symbol);
                     Log.d(TAG, "Update SymbolID of " + symbol);
                     sendBroadcast(broadcastIntent);
-                    SymbolData SymbolDataJSON = new SymbolData(apiServer, OAUTH_TOKEN, symbol);
+                    final SymbolData SymbolDataJSON = new SymbolData(apiServer, OAUTH_TOKEN, symbol);
                      do{
                         try {
                             while (SymbolDataJSON.run() != 200) {
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            sym.get(i).DeleteSymbol(realm);
+                            break;
                         }
                     } while(SymbolDataJSON==null);
 
-                    int symID = SymbolDataJSON.getSymbolID(0);
+                    int symID = SymbolDataJSON.getSymbolID();
                     realm.beginTransaction();
-                    sym.get(i).setSymbolId(symID);     // realm write
+                        sym.get(i).setSymbolId(symID);     // realm write
                     realm.commitTransaction();
                 }
             }

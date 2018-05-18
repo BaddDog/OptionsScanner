@@ -34,7 +34,6 @@ class ViewStrategyListAdapter extends RealmRecyclerViewAdapter<Strategy, ViewStr
         this.realm = realm;
     }
 
-
     @Override
     public MyViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
 

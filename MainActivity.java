@@ -3,15 +3,10 @@ package com.baddog.optionsscanner;
 
 import android.app.NotificationManager;
 import android.content.Context;
-
 import android.content.IntentFilter;
 import android.content.res.ColorStateList;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Debug;
-import android.os.Process;
 import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.JsonReader;
 import android.webkit.WebChromeClient;
@@ -34,16 +29,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
 import io.realm.Realm;
-import io.realm.RealmResults;
-
 import android.content.BroadcastReceiver;
-
 
 public class MainActivity extends Activity implements View.OnClickListener {
 
-    private static String CLIENT_ID = "0QJ_KrWXAK12rUk1_tM-ztzgJ2pMxA";
+    private static String CLIENT_ID = "yXkPAodWqgJSPzYNAO1wvF70WAQOQw";
     private static String CLIENT_SECRET = null;
-    private static String REDIRECT_URI = "https://localhost321.com";
+    private static String REDIRECT_URI = "myapp://test.com";
     private static String GRANT_TYPE = "authorization_code";
     private static String TOKEN_URL = "https://login.questrade.com/oauth2/token";
     private static String OAUTH_URL = "https://login.questrade.com/oauth2/authorize";
@@ -333,14 +325,17 @@ Intent serviceIntent;
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
-
+            try {
+                AuthJSON.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             return accessToken;
         }
 
         @Override
         protected void onPostExecute(String token) {
-            pDialog.dismiss();
+
             if (token != null) {
                 OAUTH_TOKEN = token;
                 Log.d("Token Access", token);
@@ -354,8 +349,10 @@ Intent serviceIntent;
                 authButton.setClickable(false);
 
             } else {
-                Toast.makeText(getApplicationContext(), "Network Error", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), "Network Error!!!!", Toast.LENGTH_SHORT).show();
             }
+            pDialog.dismiss();
+
         }
     }
 
@@ -365,6 +362,8 @@ Intent serviceIntent;
         web = (WebView) auth_dialog.findViewById(R.id.webview);
         web.getSettings().setJavaScriptEnabled(true);
         web.clearCache(true);
+        web.requestFocus(View.FOCUS_DOWN);
+        web.getSettings().setUseWideViewPort(true);
         String s_url = OAUTH_URL + "?redirect_uri=" + REDIRECT_URI + "&response_type=code&client_id=" + CLIENT_ID;
         web.loadUrl(s_url);
         // Create a webview client to complete authenication on questrade site ***********************************
@@ -398,7 +397,7 @@ Intent serviceIntent;
                     SharedPreferences.Editor edit = pref.edit();
                     edit.putString("Code", authCode);
                     edit.apply();
-                    auth_dialog.dismiss();
+                    //auth_dialog.dismiss();
                     // Start AsyncTask to get authentication token
                     new TokenGet(MainActivity.this).execute();
                 } else if (url.contains("error=access_denied")) {

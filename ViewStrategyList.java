@@ -80,7 +80,6 @@ public class ViewStrategyList extends Activity {
         recyclerView.setHasFixedSize(true);
         recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
 
-
         View.OnClickListener listener = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -100,6 +99,7 @@ public class ViewStrategyList extends Activity {
         };
 
         adapter.setClickListener(listener);
+        realm.close();
 
         TouchHelperCallback touchHelperCallback = new TouchHelperCallback();
         ItemTouchHelper touchHelper = new ItemTouchHelper(touchHelperCallback);

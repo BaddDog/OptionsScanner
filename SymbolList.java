@@ -35,7 +35,7 @@ public class SymbolList extends RealmObject {
         AddSymbol(realm, "AAPL");
         AddSymbol(realm, "EEM");
         AddSymbol(realm, "IWM");
-
+/*
         AddSymbol(realm, "UVXY");
         AddSymbol(realm, "USO");
 
@@ -79,7 +79,9 @@ AddSymbol(realm, "TSLA");
         AddSymbol(realm, "ABBV");
         AddSymbol(realm, "ABT");
         AddSymbol(realm, "ABX");
+
         AddSymbol(realm, "ACAD");
+
         AddSymbol(realm, "ACN");
         AddSymbol(realm, "AEP");
         AddSymbol(realm, "AFL");
@@ -88,7 +90,7 @@ AddSymbol(realm, "TSLA");
         AddSymbol(realm, "AIG");
         AddSymbol(realm, "ALLY");
         AddSymbol(realm, "AMAT");
-        AddSymbol(realm, "AMZN");
+
         AddSymbol(realm, "ANF");
         AddSymbol(realm, "APC");
         AddSymbol(realm, "ARCC");
@@ -100,6 +102,7 @@ AddSymbol(realm, "TSLA");
         AddSymbol(realm, "BHP");
         AddSymbol(realm, "BMY");
         AddSymbol(realm, "BP");
+
         AddSymbol(realm, "BUD");
         AddSymbol(realm, "BURL");
         AddSymbol(realm, "BX");
@@ -180,20 +183,21 @@ AddSymbol(realm, "TSLA");
         AddSymbol(realm, "HZNP");
         AddSymbol(realm, "INTC");
         AddSymbol(realm, "JACK");
-        AddSymbol(realm, "JBLU");
+        //AddSymbol(realm, "JBLU");
         AddSymbol(realm, "JD");
-        AddSymbol(realm, "JNJ");
+        //AddSymbol(realm, "JNJ");
         AddSymbol(realm, "JPM");
-        AddSymbol(realm, "KBE");
-        AddSymbol(realm, "KEY");
+        //AddSymbol(realm, "KBE");
+        //AddSymbol(realm, "KEY");
         AddSymbol(realm, "KMI");
         AddSymbol(realm, "KO");
-        AddSymbol(realm, "KRE");
-        AddSymbol(realm, "KS");
+        //AddSymbol(realm, "KRE");
+       // AddSymbol(realm, "KS");
         AddSymbol(realm, "LBTYA");
         AddSymbol(realm, "LLY");
         AddSymbol(realm, "LNG");
         AddSymbol(realm, "LOCK");
+
         AddSymbol(realm, "LOW");
         AddSymbol(realm, "LUV");
         AddSymbol(realm, "LVS");

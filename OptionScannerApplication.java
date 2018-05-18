@@ -5,6 +5,7 @@ import android.app.Application;
 import android.content.Intent;
 
 import com.facebook.stetho.Stetho;
+import com.squareup.leakcanary.LeakCanary;
 
 
 import io.realm.Realm;
@@ -19,6 +20,13 @@ public class OptionScannerApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        if (LeakCanary.isInAnalyzerProcess(this)) {
+            // This process is dedicated to LeakCanary for heap analysis.
+            // You should not init your app in this process.
+            return;
+        }
+        LeakCanary.install(this);
 
         // The default Realm file is "default.realm" in Context.getFilesDir();
         // we'll change it to "myrealm.realm"

@@ -141,8 +141,6 @@ public class Symbols extends RealmObject {
         return this.volatility_slope;
     }
 
-
-
     private void AddSymbol(Realm realm, String symbol) {
         realm.beginTransaction();
             Symbols sym = realm.createObject(Symbols.class);
@@ -171,6 +169,25 @@ public class Symbols extends RealmObject {
     public void AddStrategy(Strategy strat) {
         this.StrategyList.add(strat);
     }
+
+    public void DeleteSymbol(Realm realm ) {
+        // Delete expiry date objects and calls and puts
+        if(ExpiryList.size()>0) {
+            for (int i = 0; i < ExpiryList.size(); i++) {
+                realm.beginTransaction();
+                    ExpiryList.get(i).getCallOptionsList().deleteAllFromRealm();
+                    ExpiryList.get(i).getPutOptionsList().deleteAllFromRealm();
+                realm.commitTransaction();
+            }
+        }
+        realm.beginTransaction();
+            this.ExpiryList.deleteAllFromRealm();
+            // Delete Strategies
+            this.StrategyList.deleteAllFromRealm();
+            this.deleteFromRealm();
+        realm.commitTransaction();
+    }
+
 
 
 }
